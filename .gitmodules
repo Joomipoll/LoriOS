@@ -1,0 +1,12 @@
+[submodule "Thirdparty/frigg"]
+	path = Thirdparty/frigg
+	url = https://github.com/managarm/frigg
+[submodule "mlibc"]
+	path = mlibc
+	url = https://github.com/managarm/mlibc.git
+[submodule "Thirdparty/fmt"]
+	path = Thirdparty/fmt
+	url = https://github.com/fmtlib/fmt
+[submodule "Thirdparty/cxxshim"]
+	path = Thirdparty/cxxshim
+	url = https://github.com/managarm/cxxshim
