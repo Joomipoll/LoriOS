@@ -1,0 +1,9 @@
+Language: Cpp
+BasedOnStyle: LLVM
+ColumnLimit: 120
+IndentWidth: 4
+
+AccessModifierOffset: -4
+PointerAlignment: Left
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowAllConstructorInitializersOnNextLine: true
