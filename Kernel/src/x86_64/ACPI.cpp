@@ -10,7 +10,6 @@
 #include <Panic.h>
 #include <Timer.h>
 #include <Debug.h>
-#include <lai/helpers/pci.h>
 
 namespace ACPI 
 {
