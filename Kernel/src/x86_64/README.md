@@ -9,6 +9,7 @@ Content:
 - [IDT.cpp](#5)
 - [PCI.cpp](#6)
 - [syscall.asm](#7)
+- [EPoll.cpp](#8)
 
 ## <a name="1">ACPI.cpp</a>
 
@@ -552,3 +553,225 @@ It then saves the current stack pointer and loads the TSS stack pointer for the 
 It then pushes all the general-purpose registers onto the stack, sets up the necessary arguments for the `SyscallHandler` function, and calls it.
 
 After the function returns, it pops all the general-purpose registers off the stack, adjusts the stack pointer, and returns to user mode using the sysret instruction.
+
+## <a name="8">EPoll.cpp</a>
+
+> `long SysEpollCreate(RegisterContext* r)`
+
+The function `SysEpollCreate` creates an epoll instance and returns a file descriptor that can be used to refer to this instance in subsequent system calls. The function takes a single argument `flags`, which is a bit mask that can be used to set various options for the epoll instance. The only option currently supported is `EPOLL_CLOEXEC`, which sets the `O_CLOEXEC` flag on the file descriptor returned by the function.
+
+First, the function retrieves the current process using the `Process::Current()` method. It then checks if the `flags` argument contains any unsupported flags by performing a bitwise AND operation with the complement of `EPOLL_CLOEXEC` (i.e., all bits except the one corresponding to `EPOLL_CLOEXEC`). If any bits are set in the result, it returns an error code `-EINVAL`.
+
+Next, the function creates a new `fs::EPoll` instance using the `new` operator. This creates a new instance of an epoll object that can be used to manage file descriptors. It then calls the `Open` method on the epoll object with a file descriptor value of `0`. This is used to create a new file descriptor that refers to the epoll object. The resulting file descriptor is stored in a `FancyRefPtr<UNIXOpenFile>` object named `handle`.
+
+The `node` member of the `UNIXOpenFile` object is set to the epoll object, and the `mode` member is set to `0`. If the `EPOLL_CLOEXEC` flag is set in the `flags` argument, the `O_CLOEXEC` flag is set in the `mode` member of the `UNIXOpenFile` object.
+
+Finally, the function allocates a new file descriptor for the process using the `AllocateHandle` method of the `Process` object, passing in the `handle` object as an argument. The resulting file descriptor is returned as the result of the function.
+
+> `long SysEPollCtl(RegisterContext* r)`
+
+The `SysEPollCtl` function is a system call handler that implements the `epoll_ctl` system call, which is used to add, modify, or remove file descriptors from an epoll instance. The function first retrieves the arguments passed by the user and checks if the file descriptors are valid. If either of them is not valid, it returns the error code `-EBADF`.
+
+The function then checks if the file descriptor being added or modified is an epoll instance. If it is, it returns an error code since it is not supported to add an epoll instance to another epoll instance. If the file descriptor is the same as the epoll file descriptor, it returns `-EINVAL` since it is not allowed to add or remove the epoll file descriptor itself.
+
+If the operation is to add a file descriptor, the function retrieves the event data from the user and checks if the `EPOLLEXCLUSIVE` and `EPOLLET` flags are set. If they are, it returns an error code since they are not supported. It then checks if the file descriptor is already in the epoll instance, and if it is, it returns `-EEXIST`. If not, it adds the file descriptor and event data to the epoll instance.
+
+If the operation is to remove a file descriptor, the function searches for the file descriptor in the `epoll` instance and removes it if found. If not found, it returns `-ENOENT`.
+
+If the operation is to modify a file descriptor, the function retrieves the current event data for the file descriptor and checks if the `EPOLLEXCLUSIVE` flag is set. If it is, it returns an error code. It then searches for the file descriptor in the epoll instance and modifies its event data if found. If not found, it returns `-ENOENT`.
+
+If the operation is not recognized, the function returns `-EINVAL`.
+
+> `long SysEpollWait(RegisterContext* r)`
+
+```C++
+Process* proc = Process::Current();
+Thread* thread = Thread::Current();
+
+int epfd = SC_ARG0(r);
+UserBuffer<struct epoll_event> events = SC_ARG1(r);
+int maxevents = SC_ARG2(r);
+long timeout = SC_ARG3(r) * 1000;
+
+auto epHandle = SC_TRY_OR_ERROR(proc->GetHandleAs<UNIXOpenFile>(epfd));
+if (!epHandle) 
+{
+    return -EBADF;
+} else if (!epHandle->node->IsEPoll()) {
+    Log::Debug(debugLevelSyscalls, DebugLevelVerbose, "Not an epoll device!");
+    return -EINVAL;
+}
+
+if (maxevents <= 0) 
+{
+    Log::Debug(debugLevelSyscalls, DebugLevelVerbose, "maxevents cannot be <= 0");
+    return -EINVAL;
+}
+
+fs::EPoll* epoll = (fs::EPoll*)epHandle->node;
+
+int64_t sigmask = SC_ARG4(r);
+int64_t oldsigmask = 0;
+if (sigmask) 
+{
+    oldsigmask = thread->signalMask;
+    thread->signalMask = sigmask;
+}
+
+OnCleanup([sigmask, oldsigmask, thread]() 
+{
+    if (sigmask) 
+    {
+        thread->signalMask = oldsigmask;
+    }
+});
+
+ScopedSpinLock lockEp(epoll->epLock);
+```
+
+The code retrieves the current process and thread and the arguments passed to the syscall.
+
+It then retrieves the file descriptor for the epoll device and checks if it is a valid device. If it is not valid, it returns an error. If it is valid, it retrieves the EPoll object associated with the file descriptor.
+
+It checks if the maxevents argument is valid and if it is not, it returns an error. If a signal mask is provided, it sets the current thread's signal mask to it and stores the old mask.
+
+It then registers a cleanup function to restore the old signal mask after the syscall completes.
+
+Finally, it acquires a lock on the EPoll object.
+
+> > `Vector<int> removeFds;`
+
+This code defines a lambda function named "getEvents" that takes no input parameters and returns a uint32_t value.
+
+> > `auto getEvents = [removeFds](FancyRefPtr<UNIXOpenFile>& handle, uint32_t requested, int& evCount) -> uint32_t`
+
+The function checks if the requested events include `EPOLLIN` or `EPOLLOUT` and if the corresponding handle node can read or write respectively. If the handle node is a socket and is not connected or listening, `EPOLLHUP` event is set. If there are pending connections and requested events include `EPOLLIN`, EPOLLIN event is set. 
+
+The function also increments the event count if any event is set. The purpose of this function is to determine the events that should be removed from the epoll instance. 
+
+The function is called on each file descriptor in the removeFds vector to determine the events that should be removed.
+
+> > `auto epollToPollEvents = [](uint32_t ep) -> int`
+
+This is a lambda function that takes an epoll event mask as input and converts it into a poll event mask. 
+
+The function first initializes a variable `evs` to 0. It then checks each bit in the input `ep` using bitwise AND (`&`) with the corresponding epoll event flag. If the bit is set, it sets the corresponding bit in `evs` using bitwise OR (`|`) with the corresponding poll event flag. 
+
+The function finally returns the resulting poll event mask. 
+
+This conversion is useful when using a poll-based event loop with a file descriptor that has been added to an epoll instance, as the poll event mask can be used to detect the same events as the epoll event mask.
+
+> > `struct EPollFD`
+
+This is a struct definition for a data structure called EPollFD. It contains three members:
+
+1. A `FancyRefPtr` object named handle, which is a smart pointer to a `UNIXOpenFile` object. This suggests that the `EPollFD` struct is used to represent a file descriptor that has been opened using the `UNIX open()` system call.
+
+2. An integer named fd, which is the file descriptor number associated with the opened file.
+
+3. An `epoll_event` object named ev, which is used to register events with the Linux epoll API. This suggests that the `EPollFD` struct is used to manage I/O events on the opened file descriptor.
+
+```C++
+Vector<EPollFD> files;
+int evCount = 0; // Amount of fds with events
+for (const auto& pair : epoll->fds) 
+{
+    auto result = proc->GetHandleAs<UNIXOpenFile>(pair.item1);
+    if (result.HasError()) { continue; } // Ignore closed fds
+    auto handle = std::move(result.Value());
+
+    if (uint32_t ev = getEvents(handle, pair.item2.events, evCount); ev) 
+    {
+        if (events.StoreValue(evCount - 1, {
+                                               .events = ev,
+                                               .data = pair.item2.data,
+        })) {
+                return -EFAULT;
+            }
+    }
+
+    if (evCount > 0) 
+    {
+        pair.item2.events & EPOLLONESHOT ? removeFds.add_back(pair.item1) : files.add_back ({ handle, pair.item1, pair.item2 });
+
+        if (evCount >= maxevents) { goto done; }
+    }
+
+    if (evCount > 0) { goto done; }
+    if (!evCount && timeout) 
+    {
+        FilesystemWatcher fsWatcher;
+        for (auto& file : files) 
+        {
+            fsWatcher.WatchNode(file.handle->node, epollToPollEvents(file.ev.events));
+        }
+
+        while (!evCount) 
+        {
+            if (timeout > 0) 
+            {
+                if (fsWatcher.WaitTimeout(timeout)) 
+                {
+                    return -EINTR; // Interrupted
+                } else if (timeout <= 0) {
+                    return 0; // Timed out
+                }
+            } else if (fsWatcher.Wait()) {
+                return -EINTR; // Interrupted
+            }
+
+            for (auto& handle : files) 
+            {
+                if (uint32_t ev = getEvents(handle.handle, handle.ev.events, evCount); ev) 
+                {
+                    if (events.StoreValue(evCount - 1, {
+                                                           .events = ev,
+                                                           .data = handle.ev.data,
+                    })) {
+                        return -EFAULT;
+                        }
+                 }
+
+                 if (evCount > 0) 
+                 {
+                     if (handle.ev.events & EPOLLONESHOT) 
+                     {
+                         removeFds.add_back(handle.fd);
+                     }
+                 }
+
+                 if (evCount >= maxevents) 
+                 {
+                     goto done;
+                 }
+             }
+         }
+     }
+}
+```
+
+This code is part of a larger implementation of the epoll system call in a Unix-like operating system. The code is responsible for monitoring a set of file descriptors for events using the `FilesystemWatcher` class and returning the set of events that occur within a specified timeout period.
+
+The code first initializes an empty vector of `EPollFD` structures called "files" and sets the `evCount` variable to zero, which will be used to keep track of the number of file descriptors with events. It then loops through each file descriptor in the epoll instance and retrieves its handle using the `proc->GetHandleAs` function. If the handle is invalid (i.e., the file descriptor is closed), the code skips to the next iteration of the loop.
+
+If the handle is valid, the code calls the `getEvents` function with the handle and the events associated with the file descriptor. This function returns a bitmask of events that have occurred on the file descriptor since the last time it was checked. If any events have occurred, the code stores them in the `events` vector using the `StoreValue` function.
+
+If the number of events stored in "events" is greater than zero, the code checks whether the `EPOLLONESHOT` flag is set for the file descriptor. If it is, the code adds the file descriptor to the `removeFds` vector, which will be used later to remove the file descriptor from the epoll instance. Otherwise, the code adds the file descriptor and its associated handle and epoll event structure to the "files" vector.
+
+If the `evCount` variable is greater than or equal to the `maxevents` parameter passed to the epoll system call, the code jumps to the `done` label and exits the loop.
+
+If the `evCount` variable is still zero and a timeout has been specified, the code creates a new instance of the `FilesystemWatcher` class and adds each file descriptor in the "files" vector to it using the `WatchNode` function. The code then enters a loop that waits for events to occur on any of the watched file descriptors.
+
+If the timeout is greater than zero and the `WaitTimeout` function of the `FilesystemWatcher` instance returns true, the code returns `-EINTR`, indicating that the system call was interrupted. If the timeout is less than or equal to zero, the code returns zero, indicating that the timeout period has expired.
+
+If the "Wait" function of the `FilesystemWatcher` instance returns true, the code returns `-EINTR`, indicating that the system call was interrupted.
+
+If any events occur on a watched file descriptor, the code again calls the `getEvents` function to retrieve the bitmask of events, stores them in the "events" vector, and checks whether the `EPOLLONESHOT` flag is set for the file descriptor. If it is, the code adds the file descriptor to the `removeFds` vector. If the `evCount` variable is greater than or equal to the "maxevents" parameter, the code jumps to the "done" label and exits the loop.
+
+After the loop exits, the code returns the number of events stored in the "events" vector. If any file descriptors were added to the "removeFds" vector, the code removes them from the epoll instance using the `RemoveFds` function.
+
+> > `done`
+
+This code removes the file descriptors specified in the `removeFds` list from the `epoll` object. It does this by iterating over each file descriptor in `removeFds`, and for each one, iterating over the list of file descriptors in the `epoll` object until it finds a matching file descriptor. Once a matching file descriptor is found, it is removed from the list and the loop for that file descriptor in `removeFds` continues. The function then returns the number of events that were processed.
+
+[To the begining](#exit)
