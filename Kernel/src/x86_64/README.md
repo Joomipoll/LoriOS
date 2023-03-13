@@ -1,8 +1,13 @@
+<a name="exit"></a>
 # Code details
+
 Content:
-- [ACPI.cpp](#1) <br>
-- [APIC.cpp](#2) <br>
-- [](#3) <br>
+- [ACPI.cpp](#1)
+- [APIC.cpp](#2)
+- [CPUID.cpp](#3)
+- [IDT.asm](#4)
+- [IDT.cpp](#5)
+- [PCI.cpp](#6)
 
 ## <a name="1">ACPI.cpp</a>
 
@@ -49,6 +54,8 @@ The function then disables interrupts, reads the Multiple APIC Description Table
 > `void SetRSDP()`:
 
 This function takes a pointer to an ACPI Extended System Description Pointer (XSDP) structure and sets it to a global variable "desc" using a ``reinterpret_cast``. The purpose of this function is to allow other parts of the program to access the XSDP structure stored in "desc" without having to pass it as a parameter every time.
+
+[To the begining](#exit)
 
 ## <a name="2">APIC.cpp</a>
 
@@ -132,17 +139,241 @@ Finally, the function writes the high and low portions of the ICR message to the
 
  ::: **Begin: namespace IO** :::
 
+Briefly,
 
+This code defines a class for handling Input/Output Advanced Programmable Interrupt Controller (I/O APIC) interrupts. The class provides methods for reading and writing to I/O APIC registers, redirecting interrupts to specific interrupt vectors, initializing the I/O APIC, setting the I/O APIC base address, and mapping legacy IRQs. The class also defines variables for storing the I/O APIC base address, the virtual base address, the register select pointer, the I/O window pointer, the number of interrupts available, and the APIC ID. The class uses the ACPI (Advanced Configuration and Power Interface) to obtain interrupt source overrides and map legacy IRQs. The code includes error handling for attempting to initialize the I/O APIC without setting the base address and asserts that reading 64-bit registers is unimplemented. Overall, this code provides a useful abstraction for working with I/O APIC interrupts.
 
+::: **End: namespace IO** :::
 
+> `int Initialize()`
 
+The function `Initialize()` checks if the CPU has the Advanced Programmable Interrupt Controller (APIC) feature enabled. If it is not present, it returns an error and exits. If it is present, it disables the interrupt flag (cli), disables the Programmable Interrupt Controller (PIC), initializes the Local and IO APICs, and sets the interrupt flag (sti). It returns 0 if the initialization was successful.
 
+::: **End: namespace APIC** :::
 
+> `extern "C" void LocalAPICEOI() { APIC_WRITE(LOCAL_APIC_EOI, 0); }`
 
+It defines a function called "LocalAPICEOI" that takes no arguments and returns nothing.
 
+The function calls the "APIC_WRITE" macro with two arguments: `LOCAL_APIC_EOI` and 0. This macro writes the value 0 to some register or memory location related to the local Advanced Programmable Interrupt Controller (APIC).
 
+This function to be responsible for acknowledging an interrupt that was handled by the local APIC. When an interrupt is triggered, the APIC sends a signal to the CPU to handle it. Once the CPU has handled the interrupt, it must send a signal back to the APIC to acknowledge that the interrupt has been handled. This function performs that acknowledgement.
 
+[To the begining](#exit)
 
+## <a name="3">CPUID.cpp</a>
 
+This code defines a function called `CPUID` that returns a struct `cpuid_info_t`. The function uses inline assembly to execute the `cpuid` instruction, which is used to obtain information about the CPU. 
 
+The first `cpuid` instruction is used to get the vendor string, which is stored in the `ebx`, `edx`, and `ecx` registers. The function then copies the string from these registers into the `info.vendorString` buffer. 
+
+The second `cpuid` instruction is used to get the CPU features, which are stored in the `edx` and `ecx` registers. The function stores these values in the `info.features_edx` and `info.features_ecx` fields of the `cpuid_info_t` struct. 
+
+Overall, this function provides a way to obtain information about the CPU, which can be useful for system monitoring, optimization, and other purposes.
+
+[To the begining](#exit)
+
+## <a name="4">IDT.asm</a>
+
+This code defines Interrupt Service Routines (ISRs) and Interrupt Request Handlers (IRQs) for handling hardware and software interrupts in a 64-bit operating system. It also defines an Interrupt Request Handler for system calls `SyscallHandler`. The code creates a table of interrupt vectors `int_vectors` that contain the addresses of the ISRs and IRQs. The `idt_flush` function is used to load the Interrupt Descriptor Table (IDT) with the interrupt vectors. The `LocalAPICEOI` function is used to send an End of Interrupt (EOI) signal to the Local APIC (Advanced Programmable Interrupt Controller) after an interrupt has been handled.
+
+[To the begining](#exit)
+
+## <a name="5">IDT.cpp</a>
+
+This code defines the Interrupt Descriptor Table (IDT) and Interrupt Service Routines (ISRs) for handling interrupts and exceptions in an operating system. 
+
+The IDT is an array of 256 entries, each representing a different interrupt or exception. Each entry contains information about how to handle the interrupt, such as the address of the ISR associated with it. 
+
+The `ISRDataPair` struct is used to store a pair of an ISR function pointer and an additional data pointer that can be passed to the ISR when it is called. 
+
+The `interruptHandlers` array is an array of 256 `ISRDataPairs`, representing the handlers for each interrupt or exception. 
+
+> `extern "C"`
+
+- `isr0` - `isr31` are processor interrupts that are called when certain events occur, such as division by zero, memory protection violation, etc.
+
+- `irq0` - `irq15` are hardware interrupts that are called when a signal occurs from input / output devices such as keyboard, mouse, hard disk, etc.
+
+- `isr0x69` is a specific processor interrupt that is called when a processor error occurs due to the incorrect use of a processor instruction. This interrupt can be triggered, for example, when trying to execute an instruction that cannot be executed on the given processor.
+
+> `extern uint64_t int_vectors[];`
+
+The variable contains a list of memory addresses that correspond to interrupt service routines (ISRs) for a particular processor architecture. When an interrupt occurs, the processor jumps to the memory address stored in the appropriate slot of the `int_vectors` array to execute the corresponding ISR.
+
+::: **Begin: namespace IDT** :::
+
+This code initializes the Interrupt Descriptor Table (IDT) for an x86 processor. The IDT is a data structure that contains entries for each interrupt vector, with each entry containing the memory address of the interrupt handler function to be executed when the interrupt occurs. 
+
+The code defines two interrupt handler functions: `IPIHalt` and `InvalidInterruptHandler`. The former function disables interrupts and halts the processor, while the latter function simply logs a warning message indicating that an invalid interrupt handler was called. 
+
+The `SetGate` function is used to set the values of an IDT entry. It takes as input the interrupt vector number, the memory address of the interrupt handler function, the selector for the code segment, the flags for the IDT entry, and an optional Interrupt Stack Table (IST) index. The function sets the appropriate values in the IDT entry. 
+
+The `Initialize` function sets up the IDT for use. It sets the limit and base address of the IDT pointer, and then calls `SetGate` for each IDT entry, setting the appropriate values for the interrupt handler function address, selector, and flags. The first 48 IDT entries are set to zero (reserved for processor exceptions), while the remaining entries are set to the memory addresses of the interrupt service routines stored in the `int_vectors` array.
+
+```C++
+SetGate(0, (uint64_t)isr0, 0x08, 0x8E);
+SetGate(1, (uint64_t)isr1, 0x08, 0x8E);
+SetGate(2, (uint64_t)isr2, 0x08, 0x8E);
+SetGate(3, (uint64_t)isr3, 0x08, 0x8E);
+SetGate(4, (uint64_t)isr4, 0x08, 0x8E);
+SetGate(5, (uint64_t)isr5, 0x08, 0x8E);
+SetGate(6, (uint64_t)isr6, 0x08, 0x8E);
+SetGate(7, (uint64_t)isr7, 0x08, 0x8E);
+SetGate(8, (uint64_t)isr8, 0x08, 0x8E, 2); 
+SetGate(9, (uint64_t)isr9, 0x08, 0x8E);
+SetGate(10, (uint64_t)isr10, 0x08, 0x8E);
+SetGate(11, (uint64_t)isr11, 0x08, 0x8E);
+SetGate(12, (uint64_t)isr12, 0x08, 0x8E);
+SetGate(13, (uint64_t)isr13, 0x08, 0x8E);
+SetGate(14, (uint64_t)isr14, 0x08, 0x8E);
+SetGate(15, (uint64_t)isr15, 0x08, 0x8E);
+SetGate(16, (uint64_t)isr16, 0x08, 0x8E);
+SetGate(17, (uint64_t)isr17, 0x08, 0x8E);
+SetGate(18, (uint64_t)isr18, 0x08, 0x8E);
+SetGate(19, (uint64_t)isr19, 0x08, 0x8E);
+SetGate(20, (uint64_t)isr20, 0x08, 0x8E);
+SetGate(21, (uint64_t)isr21, 0x08, 0x8E);
+SetGate(22, (uint64_t)isr22, 0x08, 0x8E);
+SetGate(23, (uint64_t)isr23, 0x08, 0x8E);
+SetGate(24, (uint64_t)isr24, 0x08, 0x8E);
+SetGate(25, (uint64_t)isr25, 0x08, 0x8E);
+SetGate(26, (uint64_t)isr26, 0x08, 0x8E);
+SetGate(27, (uint64_t)isr27, 0x08, 0x8E);
+SetGate(28, (uint64_t)isr28, 0x08, 0x8E);
+SetGate(29, (uint64_t)isr29, 0x08, 0x8E);
+SetGate(30, (uint64_t)isr30, 0x08, 0x8E);
+SetGate(31, (uint64_t)isr31, 0x08, 0x8E);
+SetGate(0x69, (uint64_t)isr0x69, 0x08, 0xEE, 0);
+```
+
+The code above sets up Interrupt Service Routines (ISRs) for the CPU. These ISRs are used to handle interrupts and exceptions that occur during program execution. 
+
+Each line of code sets up a single ISR, identified by its interrupt number (0-31 and 0x69 for syscall). The `SetGate` function is called with four arguments: 
+
+1. The interrupt number
+2. The address of the ISR function
+3. The segment selector (0x08, which is the code segment for kernel mode)
+4. The interrupt gate descriptor (0x8E for normal ISRs and 0xEE for syscall ISR)
+
+For the Double Fault ISR (interrupt number 8), there is an additional fifth argument of 2, which sets the interrupt gate descriptor to 0x8E and sets the stack pointer to the kernel stack.
+
+The syscall ISR (interrupt number 0x69) is given a special interrupt gate descriptor (0xEE) that allows it to be called from user mode.
+
+This code is setting up the Interrupt Descriptor Table (IDT) for handling hardware interrupts on an x86 processor. 
+
+```C++
+asm volatile("lidt %0;" ::"m"(idtPtr));
+
+outportb(0x20, 0x11);
+outportb(0xA0, 0x11);
+outportb(0x21, 0x20);
+outportb(0xA1, 0x28);
+outportb(0x21, 0x04);
+outportb(0xA1, 0x02);
+outportb(0x21, 0x01);
+outportb(0xA1, 0x01);
+outportb(0x21, 0x0);
+outportb(0xA1, 0x0);
+
+SetGate(32, (uint64_t)irq0, 0x08, 0x8E);
+SetGate(33, (uint64_t)irq1, 0x08, 0x8E);
+SetGate(34, (uint64_t)irq2, 0x08, 0x8E);
+SetGate(35, (uint64_t)irq3, 0x08, 0x8E);
+SetGate(36, (uint64_t)irq4, 0x08, 0x8E);
+SetGate(37, (uint64_t)irq5, 0x08, 0x8E);
+SetGate(38, (uint64_t)irq6, 0x08, 0x8E);
+SetGate(39, (uint64_t)irq7, 0x08, 0x8E);
+SetGate(40, (uint64_t)irq8, 0x08, 0x8E);
+SetGate(41, (uint64_t)irq9, 0x08, 0x8E);
+SetGate(42, (uint64_t)irq10, 0x08, 0x8E);
+SetGate(43, (uint64_t)irq11, 0x08, 0x8E);
+SetGate(44, (uint64_t)irq12, 0x08, 0x8E);
+SetGate(45, (uint64_t)irq13, 0x08, 0x8E);
+SetGate(46, (uint64_t)irq14, 0x08, 0x8E);
+SetGate(47, (uint64_t)irq15, 0x08, 0x8E);
+
+RegisterInterruptHandler(IPI_HALT, IPIHalt);
+```
+
+The first line sets the IDT pointer to the address of the IDT structure. 
+
+The next 10 lines set up the Programmable Interrupt Controller (PIC) to handle hardware interrupts. The PIC is a chip that manages interrupts from hardware devices and sends them to the processor. 
+
+The last 16 lines set up the IDT entries for the 16 hardware interrupts `IRQ0-IRQ15`. Each entry specifies the interrupt number, the address of the interrupt handler function, and the privilege level and gate type. 
+
+Finally, the `IPI_HALT` interrupt is registered with the `IPIHalt` function as its handler. It's a custom interrupt used for halting the processor.
+
+> `void RegisterInterruptHandler(uint8_t interrupt, isr_t handler, void* data)`
+
+This function registers an interrupt handler for a given interrupt number. The interrupt number is passed as the first argument, and the handler function and associated data are passed as the second and third arguments, respectively.
+
+The function first checks if a handler has already been registered for the given interrupt number. If so, it logs a warning message and does not register the new handler. If no handler has been registered, it logs an information message and proceeds to register the new handler by storing it and its associated data in the interruptHandlers array at the corresponding index.
+
+Note that the `interruptHandlers` array is assumed to be a global array of structures, where each structure contains a handler function pointer and a data pointer. The `InvalidInterruptHandler` constant is assumed to be defined elsewhere as a sentinel value to indicate that no handler has been registered for a given interrupt number.
+
+> `uint8_t ReserveUnusedInterrupt()`
+
+This function reserves an unused interrupt by searching for an available interrupt starting from `IRQ0 + 16` up to 100. If an available interrupt is found, the corresponding interrupt handler is set to an invalid handler function and the interrupt number is returned. If no available interrupt is found, it returns 0xFF indicating that no interrupt is available. 
+
+The function takes no input parameters and returns an 8-bit unsigned integer representing the interrupt number.
+
+> `void DisablePIC()`
+
+This function disables the Programmable Interrupt Controller (PIC) on the x86 architecture. The PIC is responsible for handling interrupts from hardware devices, and by disabling it, the system will not respond to hardware interrupts.
+
+The function achieves this by sending specific commands to the PIC through the x86 I/O ports. The first two commands (0x11) tell the PIC that we want to set up its configuration. The next two commands (0xF0) set the interrupt mask for each PIC. The next two commands (0x04 and 0x02) set the PIC's operating mode. The final two commands (0x01 and 0xFF) tell the PIC to finish its configuration and set the interrupt mask to its default value.
+
+Overall, this function is useful in situations where we want to disable hardware interrupts, such as in certain types of debugging or testing scenarios.
+
+::: **End: namespace IDT** :::
+
+> `extern "C" void isr_handler(int intNum, RegisterContext* regs)`
+
+This function is an interrupt service routine (ISR) that handles hardware interrupts in the kernel. It takes two parameters: the interrupt number `intNum` and a pointer to the register context `regs` at the time the interrupt occurred.
+
+The first thing the function does is check if there is a registered handler for this interrupt number. If there is, it calls the handler function with the provided data and the register context.
+
+If there is no registered handler, the function checks if the segment's privilege level (CPL) is 0, indicating that the interrupt occurred in kernel mode. If it did, the function logs a kernel panic message and halts other processors. It then prints out information about the exception that occurred, including the RIP (instruction pointer), error code, and register dump. Finally, it prints a stack trace and calls the `KernelPanic` function to halt the system.
+
+If the interrupt did not occur in kernel mode, the function acquires a lock and checks the current process's state. If it is not running, the function enters an infinite loop. Otherwise, it logs a warning message about the crashed process, prints out information about the exception, including a stack trace, and terminates the process by calling the `Die` function.
+
+> `extern "C" void irq_handler(int int_num, RegisterContext* regs)`
+
+This is a function definition for an interrupt service routine (ISR). The function is called `irq_handler` and takes two parameters: an integer `int_num` representing the interrupt number, and a pointer to a `RegisterContext` struct which contains the register values at the time of the interrupt.
+
+The first line of the function calls `LocalAPICEOI()`, which is likely a function that acknowledges the interrupt at the local APIC (Advanced Programmable Interrupt Controller) level. This is necessary to prevent the interrupt from being re-triggered.
+
+The next block of code checks if there is an interrupt handler registered for the given interrupt number. If there is, the corresponding handler function is called with the provided `data` parameter (which could be any type of data), as well as the register context struct.
+
+If there is no registered handler for the interrupt, a warning message is logged indicating that the interrupt was unhandled.
+
+Overall, this function is used to handle interrupts in a system by calling registered handler functions.
+
+> `extern "C" void ipi_handler(int int_num, RegisterContext* regs)`
+
+This is a function definition for a handler function called `ipi_handler`, which is designed to handle Inter-Processor Interrupts (IPIs). 
+
+The function takes two parameters: an integer representing the interrupt number `int_num` and a pointer to a `RegisterContext` object (regs). 
+
+The first line of the function calls a function called `LocalAPICEOI()`, which is responsible for acknowledging the interrupt and clearing the interrupt flag. 
+
+The function then checks if there is a registered handler for the interrupt number using an if statement and the `__builtin_expect()` function, which is a compiler optimization that helps predict the outcome of a branch. If there is a registered handler, the function retrieves the handler and its associated data from an array called `interruptHandlers` and calls the handler function, passing in the data and the `RegisterContext` pointer as arguments. 
+
+If there is no registered handler, the function logs a warning message indicating that the IPI was unhandled.
+
+[To the begining](#exit)
+
+## <a name="6">PCI.cpp</a>
+
+::: **Begin: namespace PCI** :::
+
+- `devicesLock`: a lock object of type `lock_t`
+- `devices`: a pointer to a `Vector` object that contains `PCIInfo` elements
+- `unknownDevice`: a pointer to a `PCIInfo` object that represents an unknown device
+- `mcfgTable`: a pointer to a `PCIMCFG` object that represents the MCFG table
+- `configMode`: a variable of type `PCIConfigurationAccessMode` that specifies the mode of PCI configuration access (either Legacy or Enhanced)
+- `enhancedBaseAddresses`: a pointer to a `Vector` object that contains `PCIMCFGBaseAddress` elements.
+
+> `uint32_t ConfigReadDword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset)`
 
