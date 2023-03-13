@@ -8,6 +8,7 @@ Content:
 - [IDT.asm](#4)
 - [IDT.cpp](#5)
 - [PCI.cpp](#6)
+- [syscall.asm](#7)
 
 ## <a name="1">ACPI.cpp</a>
 
@@ -377,3 +378,177 @@ If there is no registered handler, the function logs a warning message indicatin
 
 > `uint32_t ConfigReadDword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset)`
 
+This function reads a 32-bit value from a configuration register of a PCI device. The function takes four input parameters: bus, slot, function, and offset. These parameters specify the location of the configuration register in the PCI configuration space. The function constructs a 32-bit address by combining these parameters and sets the address in the PCI configuration address register (0xCF8). It then reads the 32-bit value from the configuration register using the PCI configuration data register (0xCFC) and returns the value. 
+
+Note that the function sets the most significant bit of the address (bit 31) to 1, which indicates that it is a configuration access. The function also masks the two least significant bits of the offset parameter (bits 1:0) to ensure that the address is aligned to a 4-byte boundary.
+
+> `uint16_t ConfigReadWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset)`
+
+This function reads a 16-bit word from the configuration space of a PCI device, identified by its bus number, slot number, function number, and offset within the configuration space.
+
+The function first constructs a 32-bit address by combining the bus, slot, function, and offset parameters, and setting the "enable bit" in the most significant bit position. This address is then written to the PCI configuration address port (0xCF8) using the outportl() function.
+
+Next, the function reads a 32-bit value from the PCI configuration data port (0xCFC) using the inportl() function. The relevant 16-bit word is extracted from this value using bitwise operations based on the offset parameter, and returned to the caller.
+
+Note that the function assumes that the PCI configuration address and data ports are mapped to the standard I/O port addresses used by the x86 architecture. The function also assumes that the caller has appropriate permissions to access the PCI configuration space.
+
+> `uint8_t ConfigReadByte(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset)`
+
+This function is similar to the previous one, but it reads a single byte (8 bits) from the PCI configuration space instead of a 16-bit word.
+
+The function constructs the same 32-bit address as before, and writes it to the PCI configuration address port. It then reads a 32-bit value from the PCI configuration data port, and extracts the relevant byte using bitwise operations based on the offset parameter.
+
+Function uses a different mask (0xfc) to ensure that the offset parameter is aligned to a 4-byte boundary, as the PCI configuration space only allows access to 4-byte aligned addresses. The function also uses a different bitwise operation to extract the relevant byte from the 32-bit value, based on the offset parameter modulo 4.
+
+As with the previous function, the function assumes that the PCI configuration address and data ports are mapped to the standard I/O port addresses used by the x86 architecture, and that the caller has appropriate permissions to access the PCI configuration space.
+
+> `void ConfigWriteDword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint16_t data)`
+
+This function writes a 32-bit (4-byte) value to the configuration space of a PCI device, identified by its bus number, slot number, function number, and offset within the configuration space.
+
+The function constructs the same 32-bit address as the previous functions, and writes it to the PCI configuration address port. It then writes the 32-bit value to the PCI configuration data port using the outportl() function.
+
+Also note that the function only writes a 16-bit value to the PCI configuration space, as the outportl() function writes a 32-bit value. The upper 16 bits of the 32-bit value are ignored by the PCI device.
+
+> `void ConfigWriteWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint16_t data)`
+
+The function first constructs a 32-bit address by combining the bus, slot, function, and offset parameters. The address is then written to the PCI configuration address port (0xCF8) using the outportl function.
+
+The data parameter is written to the PCI configuration data port (0xCFC) using the outportl function. Before writing the data, the function first reads the current value of the register from the data port and masks out the bits that correspond to the 16-bit word being written. The new data is then shifted to the appropriate position and ORed with the masked value to produce the final data to be written.
+
+> `void ConfigWriteByte(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint8_t data)`
+
+Like the previous function, the function constructs a 32-bit address by combining the bus, slot, function, and offset parameters, and writes it to the PCI configuration address port (0xCF8) using the outportl function.
+
+The data parameter is written to the PCI configuration data port (0xCFC) using the outportb function. Before writing the data, the function first reads the current value of the register from the data port and masks out the bits that correspond to the byte being written. The new data is then shifted to the appropriate position and ORed with the masked value to produce the final data to be written.
+
+> Two functions
+
+
+```C++
+uint16_t GetVendor(uint8_t bus, uint8_t slot, uint8_t func) 
+{
+    uint16_t vendor;
+
+    vendor = ConfigReadWord(bus, slot, func, PCIVendorID);
+    return vendor;
+}
+
+uint16_t GetDeviceID(uint8_t bus, uint8_t slot, uint8_t func) 
+{
+    uint16_t id;
+
+    id = ConfigReadWord(bus, slot, func, PCIDeviceID);
+    return id;
+}
+```
+
+The code defines two functions, namely `GetVendor` and `GetDeviceID`, that take three arguments each: `bus`, `slot`, and `func`, all of type `uint8_t`. 
+
+The `GetVendor` function reads the Vendor ID of a PCI device using the `ConfigReadWord` function and returns it as a `uint16_t` variable. Similarly, the `GetDeviceID` function reads the Device ID of a PCI device using the `ConfigReadWord` function and returns it as a uint16_t variable. 
+
+It is assumed that the `ConfigReadWord` function is defined elsewhere in the code and takes four arguments: `bus`, `slot`, `func`, and `offset`, and returns a uint16_t value. The function is used to read the configuration space of a PCI device.
+
+> `uint8_t GetClassCode(uint8_t bus, uint8_t slot, uint8_t func) { return ConfigReadByte(bus, slot, func, PCIClassCode); }`
+> `uint8_t GetSubclass(uint8_t bus, uint8_t slot, uint8_t func) { return ConfigReadByte(bus, slot, func, PCISubclass); }`
+> `uint8_t GetProgIf(uint8_t bus, uint8_t slot, uint8_t func) { return ConfigReadByte(bus, slot, func, PCIProgIF); }`
+> `uint8_t GetHeaderType(uint8_t bus, uint8_t slot, uint8_t func) { return PCI::ConfigReadByte(bus, slot, func, PCIHeaderType); }`
+
+**The first function**, `GetClassCode`, takes three arguments: bus, slot, and func, and returns the Class Code of the PCI device as a uint8_t variable. It uses the ConfigReadByte function to read the Class Code field from the configuration space. 
+
+**The second function**, `GetSubclass`, takes the same arguments as GetClassCode and returns the Subclass of the PCI device as a uint8_t variable. It uses the ConfigReadByte function to read the Subclass field from the configuration space. 
+
+**The third function**, `GetProgIf`, takes the same arguments as the previous two functions and returns the Programming Interface of the PCI device as a uint8_t variable. It uses the ConfigReadByte function to read the Programming Interface field from the configuration space. 
+
+**The fourth function**, `GetHeaderType`, takes the same arguments as the previous three functions and returns the Header Type of the PCI device as a uint8_t variable. It uses the PCI::ConfigReadByte function to read the Header Type field from the configuration space. 
+
+Overall, the functions are used to extract specific information about a PCI device's configuration and can be used in a larger program that deals with PCI devices.
+
+> `bool CheckDevice(uint8_t bus, uint8_t device, uint8_t func)`
+> `bool FindDevice(uint16_t deviceID, uint16_t vendorID)`
+> `bool FindGenericDevice(uint16_t classCode, uint16_t subclass)`
+
+These functions check and find devices on a PCI bus. The `CheckDevice` function checks if a device is present on the specified bus, device, and function. The `FindDevice` function searches for a specific device with a given device ID and vendor ID. The `FindGenericDevice` function searches for a device with a specific class code and subclass. All three functions use a `ScopedSpinLock` to protect the devices list from concurrent access.
+
+> `const PCIInfo& GetPCIDevice(uint16_t deviceID, uint16_t vendorID)`
+> `const PCIInfo& GetGenericPCIDevice(uint8_t classCode, uint8_t subclass)`
+
+**The first function**, `GetPCIDevice`, takes in two parameters: `deviceID` and `vendorID`, both of type `uint16_t`. It returns a constant reference to a `PCIInfo` object, which contains information about the PCI device with the specified device and vendor IDs. The function first acquires a lock on the `devicesLock` mutex, which ensures that only one thread can access the `devices` vector at a time. It then loops through all the `PCIInfo` objects in the `devices` vector, comparing their `deviceID` and `vendorID` fields to the specified values. If it finds a match, it returns a constant reference to that `PCIInfo` object. If it doesn't find a match, it logs an error message and returns a constant reference to the `unknownDevice` object.
+
+**The second function**, `GetGenericPCIDevice`, takes in two parameters: `classCode` and `subclass`, both of type `uint8_t`. It also returns a constant reference to a `PCIInfo` object, which contains information about a PCI device with the specified class and subclass codes. Like the previous function, it acquires a lock on the `devicesLock` mutex and loops through all the `PCIInfo` objects in the `devices` vector, comparing their `classCode` and `subclass` fields to the specified values. If it finds a match, it returns a constant reference to that `PCIInfo` object. If it doesn't find a match, it logs an error message and returns a constant reference to the `unknownDevice` object. 
+
+**Both functions** use a `ScopedSpinLock` object to ensure that the `devices` vector is accessed safely and that no other thread can modify it while they are looping through its contents. If a matching `PCIInfo` object is found, a constant reference to that object is returned, which prevents the caller from modifying it. If no matching object is found, a constant reference to the `unknownDevice` object is returned, which ensures that the caller always receives a valid `PCIInfo` object.
+
+> `void EnumeratePCIDevices(uint16_t deviceID, uint16_t vendorID, void (*func)(const PCIInfo&))`
+> `void EnumerateGenericPCIDevices(uint8_t classCode, uint8_t subclass, void (*func)(const PCIInfo&))`
+
+These functions are used to enumerate PCI devices based on their device ID, vendor ID, class code, and subclass. 
+
+**The first function**, `EnumeratePCIDevices()`, takes in a device ID and vendor ID and a function pointer to a function that takes in a `PCIInfo` object as an argument. It then locks the `devicesLock` mutex to prevent multiple threads from accessing the devices vector at the same time. It then iterates through the devices vector and calls the function pointer on any device that matches the given device ID and vendor ID. 
+
+**The second function**, `EnumerateGenericPCIDevices()`, takes in a class code and subclass and a function pointer to a function that takes in a `PCIInfo` object as an argument. It also locks the `devicesLock` mutex before iterating through the devices vector and calling the function pointer on any device that matches the given class code and subclass. 
+
+**Both functions** use a `ScopedSpinLock` object to automatically lock and unlock the devicesLock mutex when the function goes out of scope. This ensures that the mutex is always released, even if an exception is thrown.
+
+> `int AddDevice(int bus, int slot, int func)`
+
+This function is used to add a new PCI device to the devices vector. 
+
+It takes in the bus, slot, and function numbers of the device and uses them to retrieve the device's vendor ID, device ID, class code, subclass, and programming interface using various Get functions. 
+
+It then creates a new PCIInfo object and fills in its fields with the retrieved information and the given bus, slot, and function numbers. 
+
+The function then locks the `devicesLock` mutex using a `ScopedSpinLock` object to prevent multiple threads from accessing the devices vector at the same time. It retrieves the current length of the devices vector and adds the new device to the back of the vector using the `add_back()` function. Finally, it returns the index of the new device in the vector. 
+
+**This function assumes that the devices vector has already been initialized and is not null. If it is null, the function will cause a segmentation fault.**
+
+> `void Init()`
+
+The `Init()` function initializes the PCI subsystem by performing the following tasks:
+
+1. Creates a new PCIInfo object for an unknown device with vendor ID and device ID set to 0xFFFF.
+2. Creates a new Vector of PCIInfo objects to store the information of all the detected PCI devices.
+3. Creates a new Vector of `PCIMCFGBaseAddress` objects to store the base addresses of devices in Enhanced Configuration Access Mode.
+4. Retrieves the MCFG (PCI Express Memory Mapped Configuration Space) table from ACPI (Advanced Configuration and Power Interface).
+5. If the MCFG table is present, sets the configuration access mode to Enhanced and adds the base addresses of all devices with segment group number 0 to the `enhancedBaseAddresses` Vector.
+6. Iterates through all possible combinations of bus, slot, and function numbers to detect all PCI devices present in the system.
+7. For each detected device, adds its information to the devices Vector and checks if it has multiple functions (header type bit 7 set).
+8. If the device has multiple functions, iterates through all the functions and adds their information to the devices Vector.
+
+The Init() function initializes the PCI subsystem by detecting all the PCI devices present in the system and storing their information in the devices Vector. It also sets the configuration access mode to Enhanced if the MCFG table is present.
+
+::: **End: namespace PCI** :::
+
+> `PCIDevice::PCIDevice(uint8_t _bus, uint8_t _slot, uint8_t _func) : bus(_bus), slot(_slot), func(_func)`
+
+This code defines the constructor for the PCIDevice class, which represents a PCI device. The constructor takes three arguments: the bus number, the slot number, and the function number of the device. These values are used to read the device's configuration space using the `PCI::ConfigRead*()` functions, which are provided by the system's PCI driver.
+
+The constructor initializes several member variables of the PCIDevice object, including the device ID and vendor ID, which identify the device and its manufacturer, respectively. It also reads the device's class code, subclass, and programming interface, which describe the device's function.
+
+The constructor checks whether the device supports MSI (Message Signaled Interrupts) by checking the `PCI_STATUS_CAPABILITIES` bit in the device's status register. If the device supports MSI, the constructor reads the MSI capability structure from the device's configuration space and stores it in the msiCap member variable. The constructor also populates the capabilities vector with the IDs of all capabilities supported by the device.
+
+> `uint8_t PCIDevice::AllocateVector(PCIVectors type)`
+
+This function is a method of the PCIDevice class that allocates an interrupt vector for the device. The input parameter is a PCIVectors enum that specifies the type of interrupt vector to allocate, either MSI or Legacy.
+
+If the input parameter is MSI, the function first checks if the device is capable of using MSIs. If not, it logs an error message and returns 0xFF. If the device is MSI capable, the function reserves an unused interrupt from the Interrupt Descriptor Table (IDT) using the `IDT::ReserveUnusedInterrupt()` method. If no unused interrupt is found, the function logs an error message and returns 0xFF.
+
+Next, the function configures the MSI Capability structure of the device to enable MSIs and set the interrupt vector for the message. It sets the MSI address to CPU 0 and writes the MSI Capability structure registers to the device's configuration space using the `PCI::ConfigWriteDword()` method.
+
+If the input parameter is Legacy, the function gets the interrupt line assigned to the device and maps it to the corresponding IRQ line using the `APIC::IO::MapLegacyIRQ()` method. The function returns the IRQ line number with the IRQ0 bit set.
+
+If the input parameter is neither MSI nor Legacy, the function logs an error message and returns 0xFF.
+
+[To the begining](#exit)
+
+## <a name="7">syscall.asm</a>
+
+This code is the entry point for handling system calls in the kernel. 
+
+It begins by swapping the GS register with the kernel's own GS base, which allows access to per-CPU state. 
+
+It then saves the current stack pointer and loads the TSS stack pointer for the current CPU. It sets up the user-mode stack by pushing the user-mode stack segment selector and the saved stack pointer onto the new stack. 
+
+It then pushes all the general-purpose registers onto the stack, sets up the necessary arguments for the `SyscallHandler` function, and calls it.
+
+After the function returns, it pops all the general-purpose registers off the stack, adjusts the stack pointer, and returns to user mode using the sysret instruction.
