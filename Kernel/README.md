@@ -5,9 +5,8 @@
 
 # Code details
 Content:
-- [linkscript-x86.ld](#1) <br>
-- [linkscript-x86_64.ld](#2) <br>
-- [modules.cfg](#3) <br>
+- [linkscript-x86.ld](#1)
+- [linkscript-x86_64.ld](#2)
 
 ## <a name="1"> linkscript-x86.ld</a>
 
@@ -33,5 +32,3 @@ The ``.stivale2hdr`` section contains the header information for the Stivale2 bo
 The ``.text`` section contains the kernel code. The ``_code`` symbol is set to the current memory address. The ``.rodata`` section contains read-only data. The ``_rodata`` symbol is set to the current memory address. The ``.data`` section contains initialized data. The ``_data`` symbol is set to the current memory address. The ``.eh_frame`` section contains exception handling information. The ``_ehframe`` symbol is set to the current memory address. The ``.bss`` section contains uninitialized data. The ``_bss`` symbol is set to the current memory address.
 
 The linker script also defines some other symbols that can be used by the kernel code, such as ``_ctors_start``, ``_ctors_end``, and ``_bss_end``. Finally, the linker script discards the ``.comment`` section, which contains debugging information.
-
-## <a name="3"> Modules.cfg</a>
