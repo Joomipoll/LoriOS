@@ -10,6 +10,7 @@ Content:
 - [PCI.cpp](#6)
 - [syscall.asm](#7)
 - [EPoll.cpp](#8)
+- [ELF.cpp](#9)
 
 ## <a name="1">ACPI.cpp</a>
 
@@ -773,5 +774,23 @@ After the loop exits, the code returns the number of events stored in the "event
 > > `done`
 
 This code removes the file descriptors specified in the `removeFds` list from the `epoll` object. It does this by iterating over each file descriptor in `removeFds`, and for each one, iterating over the list of file descriptors in the `epoll` object until it finds a matching file descriptor. Once a matching file descriptor is found, it is removed from the list and the loop for that file descriptor in `removeFds` continues. The function then returns the number of events that were processed.
+
+[To the begining](#exit)
+
+## <a name="9">ELF.cpp</a>
+
+The code is responsible for loading ELF (Executable and Linkable Format) files into a process's address space. ELF is a standard file format used by many operating systems for executables, object code, shared libraries, and core dumps.
+
+The code first verifies that the ELF header is valid by checking the first 4 bytes for the string "ELF". If it is not found, the loading process is aborted.
+
+Next, the code extracts relevant information from the ELF header, such as the entry point and the number of program headers.
+
+For each program header, the code checks if it is a loadable segment and if it has a non-zero memory size. If both conditions are true, the code maps the segment into the process's address space using a virtual memory object (VMO) and increases the process's memory usage accordingly.
+
+The code then iterates through the program headers again and loads each loadable segment into memory using `memcpy()`. If the segment has an uninitialized data section, the code uses `memset()` to zero out the remaining memory.
+
+If the ELF file has a `PT_INTERP` program header, the code extracts the path of the dynamic linker from the ELF file and stores it for later use.
+
+Finally, the code returns an `elf_info_t` struct containing relevant information about the loaded ELF file, such as the entry point and the path of the dynamic linker.
 
 [To the begining](#exit)
