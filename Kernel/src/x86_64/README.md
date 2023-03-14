@@ -11,6 +11,8 @@ Content:
 - [syscall.asm](#7)
 - [EPoll.cpp](#8)
 - [ELF.cpp](#9)
+- [TSS.asm](#10)
+- [TSS.cpp](#11)
 
 ## <a name="1">ACPI.cpp</a>
 
@@ -792,5 +794,33 @@ The code then iterates through the program headers again and loads each loadable
 If the ELF file has a `PT_INTERP` program header, the code extracts the path of the dynamic linker from the ELF file and stores it for later use.
 
 Finally, the code returns an `elf_info_t` struct containing relevant information about the loaded ELF file, such as the entry point and the path of the dynamic linker.
+
+[To the begining](#exit)
+
+## <a name="10">TSS.asm</a>
+
+This code defines several external symbols. It then defines a global function, `LoadTSS`, which takes three arguments: the address of the TSS to load, a pointer to the GDT, and the selector RDX.
+
+Inside the function, it first saves the value of RBX onto the stack. It then calculates the length of the TSS (108 bytes) and stores it at the appropriate location.
+
+Next, it stores the low 16 bits of the TSS address in the appropriate location in the GDT. It does this by first moving the address into EAX, then storing the low word of EAX at the appropriate location.
+
+It repeats this process for the mid and high bytes of the TSS address, storing them in the appropriate locations.
+
+It then stores the high 32 bits of the TSS address. It does this by first moving the address into RAX, then shifting it right by 32 bits to isolate the high 32 bits. It then stores these high 32 bits.
+
+Finally, it pops the value of RBX off the stack and returns.
+
+[To the begining](#exit)
+
+## <a name="11">TSS.cpp</a>
+
+This code initializes the Task State Segment (TSS) by setting up the Interrupt Stack Tables and loading the TSS descriptor into the Task Register (TR).
+
+The function `InitializeTSS` takes a pointer to a TSS structure and a pointer to the Global Descriptor Table (GDT). It first calls the function `LoadTSS` to load the TSS descriptor into the GDT with a selector of 0x28.
+
+It allocates 8 pages of memory for each of the three Interrupt Stack Tables (IST) and maps each page to a physical memory block using the function `KernelMapVirtualMemory4K`. It then clears the memory of each IST and sets the IST pointers in the TSS structure to the beginning of the allocated memory.
+
+Finally, it sets the `RSP0` field of the TSS structure to the current value of the stack pointer (RSP) using inline assembly, and loads the TSS selector into the TR using the `LTR` instruction.
 
 [To the begining](#exit)
