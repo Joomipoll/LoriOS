@@ -13,6 +13,7 @@ Content:
 - [ELF.cpp](#9)
 - [TSS.asm](#10)
 - [TSS.cpp](#11)
+- [HAL.cpp](#12)
 
 ## <a name="1">ACPI.cpp</a>
 
@@ -824,3 +825,232 @@ It allocates 8 pages of memory for each of the three Interrupt Stack Tables (IST
 Finally, it sets the `RSP0` field of the TSS structure to the current value of the stack pointer (RSP) using inline assembly, and loads the TSS selector into the TR using the `LTR` instruction.
 
 [To the begining](#exit)
+
+## <a name="12">HAL.cpp</a>
+
+::: **Begin: namespace HAL** :::
+
+```C++
+memory_info_t mem_info;
+video_mode_t videoMode;
+multiboot2_info_header_t* multibootInfo;
+uintptr_t multibootModulesAddress;
+boot_module_t bootModules[128];
+int bootModuleCount;
+bool debugMode = false;
+bool disableSMP = false;
+bool useKCon = false;
+bool runTests = false;
+VideoConsole* con;
+
+void InitMultiboot2(multiboot2_info_header_t* mbInfo);
+void InitStivale2(stivale2_info_header_t* st2Info);
+```
+
+The code declares several variables and functions related to booting the operating system using either Multiboot2 or Stivale2 boot loaders.
+
+The `memory_info_t` variable stores information about the available memory of the system.
+The `video_mode_t` variable stores information about the current video mode.
+The `multiboot2_info_header_t` structure contains information about the Multiboot2 boot loader.
+The `multibootModulesAddress` stores the address of the Multiboot2 modules.
+The `boot_modules_t` structure stores information about the boot modules loaded by the boot loader.
+The `debugMode`, `disableSMP`, `useKCon`, and `runTests` variables are boolean flags indicating whether to enable certain features.
+The `VideoConsole` class is used to manage the video output.
+
+The `InitMultiboot2` and `InitStivale2` functions are used to initialize the operating system based on the information provided by the respective boot loader.
+
+> `void InitCore()`
+
+- Disables interrupts using the cli assembly instruction
+- Initializes the CPU context for CPU0 using `SMP::InitializeCPU0Context()`
+- Initializes the serial port using `Serial::Initialize()`
+- Initializes virtual memory using `Memory::InitializeVirtualMemory()`
+- Initializes the Interrupt Descriptor Table (IDT) using `IDT::Initialize()`
+- Initializes physical memory allocation using `Memory::InitializePhysicalAllocator()`
+
+> `void initVideo()`
+
+- Disables interrupts using the cli assembly instruction
+- Initializes the CPU context for CPU0 using `SMP::InitializeCPU0Context()`
+- Initializes the serial port using `Serial::Initialize()`
+- Initializes virtual memory using `Memory::InitializeVirtualMemory()`
+- Initializes the Interrupt Descriptor Table (IDT) using `IDT::Initialize()`
+- Initializes physical memory allocation using `Memory::InitializePhysicalAllocator()`
+
+- Initializes the video mode using `Video::Initialize()`
+- Draws a "Starting Lori..." message on the screen using `Video::DrawString()`
+- Sets the video console for logging using `Log::SetVideoConsole()`
+- If debugMode is enabled, creates a new `VideoConsole` object and sets it as the video console for logging using `Log::SetVideoConsole()` again.
+
+> `void InitExtra()`
+
+The function initializes several system components and checks if the CPU supports certain features required by the operating system. 
+
+First, it checks if the CPU supports SSE4.2, POPCNT, and CMPXCHG16 features. If the CPU does not support any of these features, a kernel panic is triggered.
+
+Then, it initializes the ACPI, PCI, system timer, local and I/O APIC, and SMP components.
+
+Finally, it calls the `LateInitializeVirtualMemory()` function from the `Memory` namespace to perform late initialization of the virtual memory subsystem.
+
+Overall, this function is responsible for initializing critical system components and ensuring that the CPU supports required features for the operating system to function properly.
+
+> `void InitMultiboot2(uintptr_t _mbInfo)`
+
+The code snippet declares a pointer `mbInfo` of type `multiboot2_info_header_t*` and assigns it the value returned by calling the `Memory::GetIOMapping()` function with the argument `_mbInfo`. 
+
+The `multiboot2_info_header_t` is a data structure defined by the Multiboot2 specification, which contains information about the boot loader and the loaded kernel. 
+
+The next line of code initializes a pointer `tag` of type `multiboot2_tag_t*` and sets it to point to the start of the tag list in the `mbInfo` structure. The tag list contains various types of information that the boot loader provides to the kernel, such as the command line arguments, memory map, and boot modules.
+
+The code then declares a pointer `cmdLine` of type `char*` and initializes it to nullptr. This pointer will be used later to store the command line arguments passed to the kernel by the boot loader.
+
+The code also declares an array `modules` of type `multiboot2_module_t*` with a size of 128 and initializes it to all zeros. This array will be used to store information about the boot modules loaded by the boot loader.
+
+Finally, the code initializes an unsigned integer `bootModuleCount` to zero, which will be used to keep track of the number of boot modules loaded by the boot loader.
+
+>> `while (tag->type && reinterpret_cast<uintptr_t>(tag) < reinterpret_cast<uintptr_t>(mbInfo) + mbInfo->totalSize)`
+
+This while loop that iterates through a memory block's tags until it reaches the end of the block or encounters a tag with a null type. The loop uses two `reinterpret_cast` functions to convert pointers to `uintptr_t` (unsigned integers wide enough to hold a pointer), allowing them to be compared as integers.
+
+The loop condition checks that the tag's type is not null (i.e., it is a valid tag) and that the tag's address is less than the end of the memory block (mbInfo) plus the total size of the block. This ensures that the loop does not iterate beyond the bounds of the memory block.
+
+>>> `switch(tag->type)`
+
+The different cases in the switch statement correspond to different types of multiboot2 tags. For example, the case Mboot2CmdLine processes a multiboot2_cmdline_t tag and extracts the command line string from it. Similarly, the case Mboot2Modules processes a multiboot2_module_t tag and adds the module to an array of boot modules.
+
+Other cases in the switch statement process tags related to memory information, framebuffer information, and ACPI RSDP. For example, the case Mboot2MemoryMap processes a multiboot2_memory_map_t tag and marks memory regions as either available or reserved.
+
+If the value of the tag->type variable does not match any of the cases defined in the switch statement, the code will execute the default case. In this case, if the debugLevelHAL variable is greater than or equal to DebugLevelVerbose, it will log an informational message stating that it is ignoring the boot tag with the specified type. If the debug level is lower than DebugLevelVerbose, the code will simply break out of the switch statement and continue with the rest of the program.
+
+> Next
+
+```C++
+Memory::MarkMemoryRegionUsed(0,
+                            (uintptr_t)&_end - KERNEL_VIRTUAL_BASE); // Make sure kernel memory is marked as used
+
+if (cmdLine) 
+{
+    char* savePtr = nullptr;
+    cmdLine = strtok_r((char*)cmdLine, " ", &savePtr);
+
+    while (cmdLine) 
+    {
+        if (strcmp(cmdLine, "debug") == 0)
+            debugMode = true;
+        else if (strcmp(cmdLine, "nosmp") == 0)
+            disableSMP = true;
+        else if (strcmp(cmdLine, "kcon") == 0)
+            useKCon = true;
+        cmdLine = strtok_r(NULL, " ", &savePtr);
+    }
+}
+
+// Manage Multiboot Modules
+if (debugLevelHAL >= DebugLevelNormal)
+    Log::Info("Multiboot Module Count: %d", bootModuleCount);
+
+for (unsigned i = 0; i < bootModuleCount; i++) 
+{
+    multiboot2_module_t& mod = *modules[i];
+
+    if (debugLevelHAL >= DebugLevelNormal) 
+    {
+        Log::Info("    Multiboot Module %d [Start: %x, End: %x, Cmdline: %s]", i, mod.moduleStart, mod.moduleEnd, mod.string);
+    }
+
+    Memory::MarkMemoryRegionUsed(mod.moduleStart, mod.moduleEnd - mod.moduleStart);
+    bootModules[i] = {
+        .base = Memory::GetIOMapping(mod.moduleStart),
+        .size = mod.moduleEnd - mod.moduleStart,
+    };
+}
+
+asm("sti");
+
+InitVideo();
+InitExtra();
+```
+
+This code is a part of the kernel initialization process in an operating system. It performs the following actions:
+
+1. Marks the kernel memory region as used.
+2. Parses the command line arguments passed to the kernel and sets system configuration flags based on them.
+3. Processes the multiboot modules information provided by the bootloader and marks their memory regions as used.
+4. Enables interrupts using the "sti" instruction.
+5. Initializes the video subsystem and any other additional system components.
+
+> `void InitStivale2(uintptr_t st2Info)`
+
+Code initializes the core of a system or program using the InitCore() function. It then retrieves the physical address of the tag structure of the stivale2_info_header_t using the Memory::GetIOMapping() function and assigns it to the variable tagPhys. The stivale2_info_header_t is a structure used in the Stivale2 bootloader to pass information to the kernel. The tag structure contains various information about the system, such as memory map, command line, and boot drive information.
+
+And next code assigns a null pointer to the variable cmdLine. This suggests that the command line argument passed to the program is not being used in this code snippet.
+
+>> switch-case
+
+1. `Stivale2TagCmdLine`: This tag contains the command line arguments passed to the kernel. The code retrieves the command line string and stores it in a variable called "cmdLine".
+
+2. `Stivale2TagMemoryMap`: This tag contains information about the system's memory map (i.e. which memory regions are available, which are reserved, etc.). The code iterates through the memory map entries and marks the usable memory regions as "free" in the kernel's memory management system. It also keeps track of the total amount of available memory.
+
+3. `Stivale2TagFramebufferInfo`: This case handles information about the framebuffer. It allocates memory for the framebuffer, maps it to virtual memory, and sets the video mode parameters such as width, height, pitch, bpp, and physical address.
+
+4. `Stivale2TagModules`: This case handles information about the modules that are loaded with the kernel. It allocates memory for each module and maps it to virtual memory.
+
+5. `Stivale2TagACPIRSDP`: This case handles information about the ACPI RSDP (Root System Description Pointer), which is a structure in the BIOS that provides information about the system's ACPI tables. It sets the RSDP in the ACPI module.
+
+If none of the cases match, the default case is executed, which does nothing.
+
+> Next
+
+```C++
+if (cmdLine) 
+{
+    char* savePtr = nullptr;
+    cmdLine = strtok_r((char*)cmdLine, " ", &savePtr);
+
+    while (cmdLine) 
+    {
+        if (strcmp(cmdLine, "debug") == 0)
+            debugMode = true;
+        else if (strcmp(cmdLine, "nosmp") == 0)
+            disableSMP = true;
+        else if (strcmp(cmdLine, "kcon") == 0)
+            useKCon = true;
+        else if (strcmp(cmdLine, "runtests") == 0)
+            runTests = true;
+        cmdLine = strtok_r(NULL, " ", &savePtr);
+    }
+}
+
+asm("sti");
+
+InitVideo();
+InitExtra();
+```
+
+This code is responsible for parsing command line arguments and setting various boolean flags based on the arguments provided. 
+
+The code first checks if there are any command line arguments and sets a pointer to the beginning of the argument string. It then uses the strtok_r() function to tokenize the string based on spaces, and loops through each token. 
+
+If the token matches one of the predefined strings ("debug", "nosmp", "kcon", or "runtests"), the corresponding boolean flag is set to true. 
+
+After parsing the command line arguments, the code enables interrupts (using the "sti" assembly instruction) and calls functions to initialize video and any additional functionality (InitExtra()).
+
+::: **End: namespace HAL** :::
+
+> Next
+
+The first function, `kmain()`, is declared but not defined in this code snippet. It is the entry point for the kernel or system program and will contain the main logic for the program. 
+
+The other two functions, `kinit_multiboot2()` and `kinit_stivale2()`, are defined and take a single argument of type `uintptr_t`. These functions are called by the bootloader or bootstrapping code to initialize the system before passing control to the kernel's `kmain()` function. 
+
+The `kinit_multiboot2()` function calls a function named `HAL::InitMultiboot2()` and passes the `mbInfo` argument to it. This function initializes hardware abstraction layer (HAL) components specific to the multiboot2 boot protocol. 
+
+Similarly, the `kinit_stivale2()` function calls a function named `HAL::InitStivale2()` and passes the `st2Info` argument to it. This function likely initializes HAL components specific to the stivale2 boot protocol. 
+
+Both `kinit_multiboot2()` and `kinit_stivale2()` then call `kmain()` to pass control to the main logic of the kernel or system program. 
+
+**The `[[noreturn]]` attribute indicates that these functions do not return and will instead halt the system or enter an infinite loop.**
+
+[To the begining](#exit)
+
+<!-- ## <a name="13"> </a> -->
