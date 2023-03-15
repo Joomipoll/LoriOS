@@ -1,5 +1,5 @@
 # LoriBirdOS Kernel #
-**Kernel modules** are located in [modules]https://github.com/Joomipoll/LoriBirdOS/tree/main/Kernel/Modules[/modules]
+**Kernel modules** are located in [modules](https://github.com/Joomipoll/LoriBirdOS/tree/main/Kernel/Modules)
 
 `modules.cfg` is copied to the initrd. At boot the kernel reads a list of filepaths from `modules.cfg` and loads the respective modules.
 
