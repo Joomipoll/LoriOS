@@ -1,6 +1,8 @@
 <a name="exit"></a>
 # Code details
 
+:pencil: **Need to be documented:** Entry.asm, SignalTrampoline.asm, Symbols.cpp, memcpu.asm, Filesystem.cpp, SMPTrampoline.asm
+
 Content:
 - [ACPI.cpp](#1)
 - [APIC.cpp](#2)
