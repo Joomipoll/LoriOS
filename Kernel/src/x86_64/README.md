@@ -1,7 +1,7 @@
 <a name="exit"></a>
 # Code details
 
-:pencil: **Need to be documented:** Entry.asm, SignalTrampoline.asm, Symbols.cpp, memcpu.asm, Filesystem.cpp, SMPTrampoline.asm, smpdefines.inc, PS2.cpp, Scheduler.cpp, Paging.cpp
+:pencil: **Need to be documented:** Entry.asm, SignalTrampoline.asm, Symbols.cpp, memcpu.asm, Filesystem.cpp, SMPTrampoline.asm, smpdefines.inc, PS2.cpp, Scheduler.cpp, Paging.cpp, Timer.cpp
 
 Content:
 - [ACPI.cpp](#1)
