@@ -11,9 +11,25 @@
 class Lock
 {
   public:
-    void lock() { acquireLock(&m_lock) }
+    void lock()
+    {
+      bool irq = CheckInterrupts();
+      if(irq)
+        acquireLockIntDisable(&m_lock);
+      else
+        acquireLock(&m_lock);
+      
+      m_irq = irq;
+    }
 
-    void unlock() { releaseLock(&m_lock) }
+    void unlock()
+    {
+      bool irq = m_irq;
+      releaseLock(&m_lock);
+      
+      if(irq)
+        EnableInterrupts();
+    }
 
   private:
     lock_t m_lock = 0;
