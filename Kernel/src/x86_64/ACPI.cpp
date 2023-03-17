@@ -4,7 +4,7 @@
 #include <IOPorts.h>
 #include <List.h>
 #include <Logging.h>
-#include <MM/KMalloc.h>
+#include <Huinya/KMalloc.h>
 #include <PCI.h>
 #include <Paging.h>
 #include <Panic.h>
