@@ -52,7 +52,7 @@ Thread::Thread(Process* _parent, pid_t _tid)
       kernelStack = (uint8_t*)kernelStackBase + 524488;
 }
 
-Thread::~Thread()
+Thread::~Thread() {}
 
 void Thread::Signal(int signal) 
 {
