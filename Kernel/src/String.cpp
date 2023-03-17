@@ -2,7 +2,7 @@
 
 #include <Paging.h>
 #include <stdint.h>
-#include <MM/KMalloc.h>
+#include <Huinya/KMalloc.h>
 #include <Net/Net.h>
 
 int HexStringToPointer(const char* buffer, size_t bufferSize, uintptr_t& pointerValue)
