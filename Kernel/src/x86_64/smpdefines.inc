@@ -1,6 +1,6 @@
 // Let's use some trickery here
 
-;/* GCC will ignore the following code and NASM will ignore the comment start
+;/*
 %ifdef beeeeeeeeeeeeeef
 ;*/
 
