@@ -5,8 +5,8 @@
 #include <Hash.h>
 #include <Lock.h>
 
-#include <Fs/Filesystem.h>
-#include <Fs/FsVolume.h>
+#include <FileSystem/Filesystem.h>
+#include <FileSystem/FsVolume.h>
 
 #define EXT2_SUPERBLOCK_LOCATION 1024
 #define EXT2_SUPER_MAGIC 0xEF53
@@ -40,16 +40,20 @@
 // When block cache reaches 96MB, use existing cached blocks
 #define EXT2_BLOCKCACHE_LIMIT 96 * 1024 * 1024
 
-namespace fs {
-class Ext2 : public fs::FsDriver {
-public:
-    enum ErrorAction {
+namespace FileSystem
+{
+    class Ext2 : public FileSystem::FsDriver
+    {
+    public:
+    enum ErrorAction
+    {
         Continue = 1,    // Continue
         ReadOnly = 2,    // Mount readonly
         KernelPanic = 3, // Kernel Panic
     };
 
-    enum Ext2InodeType {
+    enum Ext2InodeType
+    {
         BadInode = 1,
         RootInode = 2,
         ACLIndexInode = 3,
@@ -58,7 +62,8 @@ public:
         UndeleteDirInode = 6,
     };
 
-    enum CompatibleFeatures {
+    enum CompatibleFeatures
+    {
         DirectoryPreallocation = 0x1, // Preallocate blocks for new directories
         ImagicInodes = 0x2,           //
         Journal = 0x4,                // Contains an Ext3 Journal
@@ -67,7 +72,8 @@ public:
         DirectoryIndexing = 0x20,     // HTree Directory Indexing
     };
 
-    enum IncompatibleFeatures {
+    enum IncompatibleFeatures
+    {
         Compression = 0x1,   // Filesystem Compression
         Filetype = 0x2,      // Filetype used
         Recover = 0x4,       // Ext3
@@ -75,13 +81,15 @@ public:
         MetaBg = 0x10,
     };
 
-    enum ReadonlyFeatures {
+    enum ReadonlyFeatures
+    {
         Sparse = 0x1,     // Sparse Superblock (not stored in all block groups)
         LargeFiles = 0x2, // 64-bit file size support
         BinaryTree = 0x4, // Binary tree directory structure
     };
 
-    enum CreatorOS {
+    enum CreatorOS
+    {
         Linux,   // Linux
         HURD,    // GNU HURD
         MASIX,   // MASIX
@@ -89,7 +97,8 @@ public:
         Lites,   // Lites
     };
 
-    enum ErrorCode {
+    enum ErrorCode
+    {
         NoError,
         DiskReadError,
         DiskWriteError,
@@ -99,10 +108,11 @@ public:
         MiscError,
     };
 
-#define EXT2_READONLY_FEATURE_SUPPORT (ReadonlyFeatures::Sparse | ReadonlyFeatures::LargeFiles)
-#define EXT2_INCOMPAT_FEATURE_SUPPORT (IncompatibleFeatures::Filetype)
+    #define EXT2_READONLY_FEATURE_SUPPORT (ReadonlyFeatures::Sparse | ReadonlyFeatures::LargeFiles)
+    #define EXT2_INCOMPAT_FEATURE_SUPPORT (IncompatibleFeatures::Filetype)
 
-    typedef struct {
+    typedef struct
+    {
         uint32_t inodeCount;     // Number of inodes (used + free) in the file system
         uint32_t blockCount;     // Number of blocks (used + free + reserved) in the filesystem
         uint32_t resvBlockCount; // Number of blocks reserved for the superuser
@@ -132,7 +142,8 @@ public:
         uint16_t resGID;         // Default group ID for reserved blocks
     } __attribute__((packed)) ext2_superblock_t; // Ext2 superblock data
 
-    typedef struct {
+    typedef struct
+    {
         uint32_t firstInode;        // First usable inode
         uint16_t inodeSize;         // Size of the inode structure
         uint16_t blockGroupNum;     // Inode structure size (always 128 in rev 0)
@@ -148,7 +159,8 @@ public:
         uint16_t align;
     } __attribute__((packed)) ext2_superblock_extended_t; // Ext2 extended superblock
 
-    typedef struct {
+    typedef struct
+    {
         uint32_t blockBitmap;    // Block ID of the block bitmap
         uint32_t inodeBitmap;    // Block ID of the inode bitmap
         uint32_t inodeTable;     // Block ID of the inode table
@@ -159,7 +171,8 @@ public:
         uint8_t reserved[12];
     } __attribute__((packed)) ext2_blockgrp_desc_t; // Block group descriptor
 
-    typedef struct {
+    typedef struct
+    {
         uint16_t mode;       // Indicates the format of the file
         uint16_t uid;        // User ID
         uint32_t size;       // Lower 32 bits of the file size
@@ -185,7 +198,8 @@ public:
         uint8_t osd2[12];
     } __attribute__((packed)) ext2_inode_t;
 
-    typedef struct {
+    typedef struct
+    {
         uint32_t inode;        // Inode number
         uint16_t recordLength; // Displacement to next directory entry/record (must be 4 byte aligned)
         uint8_t nameLength;    // Length of the filename (must not be  larger than (recordLength - 8))
@@ -195,7 +209,8 @@ public:
 
     class Ext2Volume;
 
-    class Ext2Node : public FsNode {
+    class Ext2Node : public FileSystemNode
+    {
     protected:
         Ext2Volume* vol;
         ext2_inode_t e2inode;
@@ -213,12 +228,12 @@ public:
         ssize_t Read(size_t, size_t, uint8_t*);
         ssize_t Write(size_t, size_t, uint8_t*);
         int ReadDir(DirectoryEntry*, uint32_t);
-        FsNode* FindDir(const char* name);
+        FileSystemNode* FindDir(const char* name);
         int Create(DirectoryEntry*, uint32_t);
         int CreateDirectory(DirectoryEntry*, uint32_t);
 
         ssize_t ReadLink(char* pathBuffer, size_t bufSize);
-        int Link(FsNode*, DirectoryEntry*);
+        int Link(FilesystemNode*, DirectoryEntry*);
         int Unlink(DirectoryEntry*, bool unlinkDirectories = false);
         int Truncate(off_t length);
 
@@ -226,11 +241,13 @@ public:
         void Sync();
     };
 
-    class Ext2Volume : public FsVolume {
+    class Ext2Volume : public FsVolume
+    {
     private:
-        FsNode* m_device;
+        FileSystemNode* m_device;
 
-        struct {
+        struct
+        {
             ext2_superblock_t super;
             ext2_superblock_extended_t superext;
         } __attribute__((packed));
@@ -253,7 +270,8 @@ public:
         lock_t m_blocksLock = 0;
         HashMap<uint32_t, Ext2Node*> inodeCache;
 
-        struct CachedBlock {
+        struct CachedBlock
+        {
             // When last accessed
             uint64_t timestamp = 0;
             uint32_t block = 0;
@@ -265,7 +283,8 @@ public:
             uint8_t data[];
         };
 
-        CachedBlock* AllocateCachedBlock() {
+        CachedBlock* AllocateCachedBlock()
+        {
             CachedBlock* cb = (CachedBlock*)kmalloc(sizeof(CachedBlock) + blocksize);
             
             new (cb) CachedBlock();
@@ -283,7 +302,8 @@ public:
         inline uint32_t ResolveInodeBlockGroup(uint32_t inode) { return (inode - 1) / super.inodesPerGroup; }
         inline uint32_t ResolveInodeBlockGroupIndex(uint32_t inode) { return (inode - 1) % super.inodesPerGroup; }
 
-        inline uint64_t InodeOffset(uint32_t inode) {
+        inline uint64_t InodeOffset(uint32_t inode)
+        {
             uint32_t block = blockGroups[ResolveInodeBlockGroup(inode)].inodeTable;
             return (block * blocksize + (ResolveInodeBlockGroupIndex(inode) * inodeSize));
         }
@@ -317,12 +337,12 @@ public:
         int InsertDir(Ext2Node* node, DirectoryEntry& ent);
 
     public:
-        Ext2Volume(FsNode* device, const char* name);
+        Ext2Volume(FileSystemNode* device, const char* name);
 
         ssize_t Read(Ext2Node* node, size_t offset, size_t size, uint8_t* buffer);
         ssize_t Write(Ext2Node* node, size_t offset, size_t size, uint8_t* buffer);
         int ReadDir(Ext2Node* node, DirectoryEntry* dirent, uint32_t index);
-        FsNode* FindDir(Ext2Node* node, const char* name);
+        FileSystemNode* FindDir(Ext2Node* node, const char* name);
         int Create(Ext2Node* node, DirectoryEntry* ent, uint32_t mode);
         int CreateDirectory(Ext2Node* node, DirectoryEntry* ent, uint32_t mode);
         ssize_t ReadLink(Ext2Node* node, char* pathBuffer, size_t bufSize);
@@ -336,24 +356,24 @@ public:
         int Error() { return error; }
     };
 
-public:
-    unsigned totalBlockCacheMemoryUsage = 0;
+    public:
+        unsigned totalBlockCacheMemoryUsage = 0;
 
-    Ext2();
-    ~Ext2() override;
+        Ext2();
+        ~Ext2() override;
 
-    FsVolume* Mount(FsNode* device, const char* name) override;
-    FsVolume* Unmount(FsVolume* volume) override;
+        FsVolume* Mount(FileSystemNode* device, const char* name) override;
+        FsVolume* Unmount(FileSystemVolume* volume) override;
 
-    int Identify(FsNode* device) override;
-    const char* ID() const override;
+        int Identify(FileSystemNode* device) override;
+        const char* ID() const override;
 
-    static Ext2& Instance();
+        static Ext2& Instance();
 
-private:
-    List<FsVolume*> m_extVolumes;
+    private:
+        List<FsVolume*> m_extVolumes;
 
-    static lock_t m_instanceLock;
-    static Ext2* m_instance;
-};
-} // namespace fs
+        static lock_t m_instanceLock;
+        static Ext2* m_instance;
+    };
+}
