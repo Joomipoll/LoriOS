@@ -2,7 +2,7 @@
 #include <CPU.h>
 #include <CString.h>
 #include <Errno.h>
-#include <Fs/Filesystem.h>
+#include <FileSystem/Filesystem.h>
 #include <List.h>
 #include <Logging.h>
 #include <TTY/PTY.h>
