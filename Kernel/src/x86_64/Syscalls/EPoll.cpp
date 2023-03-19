@@ -1,7 +1,7 @@
 #include <Scheduler.h>
 #include <Syscalls.h>
 
-#include <Fs/EPoll.h>
+#include <FileSystem/EPoll.h>
 #include <Net/Socket.h>
 
 #include <UserPointer.h>
@@ -17,7 +17,7 @@ long SysEpollCreate(RegisterContext* r)
         return -EINVAL;
     }
 
-    fs::EPoll* ep = new fs::EPoll();
+    fileSystem::EPoll* ep = new FileSystem::EPoll();
     FancyRefPtr<UNIXOpenFile> handle = SC_TRY_OR_ERROR(ep->Open(0));
     handle->node = ep;
     handle->mode = 0;
@@ -61,7 +61,7 @@ long SysEPollCtl(RegisterContext* r)
         return -EINVAL; // Not an epoll device
     }
 
-    fs::EPoll* epoll = (fs::EPoll*)epHandle->node;
+    FileSystem::EPoll* epoll = (FileSystem::EPoll*)epHandle->node;
 
     ScopedSpinLock<true> lockEp(epoll->epLock);
 
@@ -153,7 +153,7 @@ long SysEpollWait(RegisterContext* r)
         return -EINVAL;
     }
 
-    fs::EPoll* epoll = (fs::EPoll*)epHandle->node;
+    FileSystem::EPoll* epoll = (FileSystem::EPoll*)epHandle->node;
 
     int64_t sigmask = SC_ARG4(r);
     int64_t oldsigmask = 0;
