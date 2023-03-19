@@ -6,7 +6,7 @@
 #include <Memory.h>
 #include <StringView.h>
 #include <ELF.h>
-#include <Fs/Filesystem.h>
+#include <FileSystem/Filesystem.h>
 #include <Panic.h>
 #include <Symbols.h>
 #include <Errno.h>
@@ -22,7 +22,7 @@ namespace ModuleManager
 {
   HashMap<StringView, Module*> modules;
 
-  int LoadModuleSegments(Module* module, FsNode* file, elf64_header_t& header)
+  int LoadModuleSegments(Module* module, FileSystemNode* file, elf64_header_t& header)
   {
     unsigned shOff = header.shOff;
     uint16_t shEntSize = header.shEntrySize;
@@ -36,7 +36,7 @@ namespace ModuleManager
 
     for (unsigned i = 0; i < shNum; i++)
     {
-        ssize_t r = fs::Read(file, shOff + i * shEntSize, sizeof(ELF64Section), &sections[i]);
+        ssize_t r = FileSystem::Read(file, shOff + i * shEntSize, sizeof(ELF64Section), &sections[i]);
         assert(r == sizeof(ELF64Section));
 
         if (sections[i].type == SHT_STRTAB)
@@ -62,7 +62,7 @@ namespace ModuleManager
 
     char* sectionStringTable = new char[shStrTab->size + 1];
     {
-        long len = fs::Read(file, shStrTab->off, shStrTab->size, sectionStringTable);
+        long len = FileSystem::Read(file, shStrTab->off, shStrTab->size, sectionStringTable);
         assert(len == shStrTab->size);
         sectionStringTable[len] = 0;
     }
@@ -91,7 +91,7 @@ namespace ModuleManager
 
     char* symStringTable = new char[symStrTab->size + 1];
     {
-        long len = fs::Read(file, symStrTab->off, symStrTab->size, symStringTable);
+        long len = FileSystem::Read(file, symStrTab->off, symStrTab->size, symStringTable);
         assert(len == symStrTab->size);
         symStringTable[len] = 0;
     }
@@ -100,7 +100,7 @@ namespace ModuleManager
 
     long moduleInfoIndex = -1;
     ELF64Symbol* symbols = new ELF64Symbol[symCount + 1];
-    assert(fs::Read(file, symTab->off, symTab->size, symbols) == symTab->size);
+    assert(FileSystem::Read(file, symTab->off, symTab->size, symbols) == symTab->size);
     {
         for (unsigned i = 0; i < symCount; i++)
         {
@@ -223,7 +223,7 @@ namespace ModuleManager
 
             if (section.type == SHT_PROGBITS)
             {
-                ssize_t read = fs::Read(file, section.off, section.size, reinterpret_cast<void*>(segmentBase));
+                ssize_t read = FileSystem::Read(file, section.off, section.size, reinterpret_cast<void*>(segmentBase));
                 assert(read == section.size);
 
                 Log::Debug(debugLevelModules, DebugLevelVerbose,
@@ -257,7 +257,7 @@ namespace ModuleManager
             size_t offset = 0;
             while (offset < section.size)
             {
-                ssize_t read = fs::Read(file, section.off + offset, sizeof(ELF64RelocationA), &relocation);
+                ssize_t read = SileSystem::Read(file, section.off + offset, sizeof(ELF64RelocationA), &relocation);
                 assert(read == sizeof(ELF64RelocationA));
 
                 offset += read;
@@ -363,7 +363,7 @@ namespace ModuleManager
 
   ModuleLoadStatus LoadModule(const char* path)
   {
-    FsNode* node = fs::ResolvePath(path);
+    FileSystemNode* node = FileSystem::ResolvePath(path);
     if (!node)
     { // Check if module exists
         Log::Error("Module '%s' not found!", path);
@@ -371,14 +371,14 @@ namespace ModuleManager
     }
 
     ErrorOr<UNIXOpenFile*> handle = nullptr;
-    if (!(handle = fs::Open(node)))
+    if (!(handle = FileSystem::Open(node)))
     { // Make sure we open a handle so the node stays in memory
         Log::Error("Failed to open handle for module '%s'", path);
         return {.status = ModuleLoadStatus::ModuleNotFound, .code = 0};
     }
 
     elf64_header_t header;
-    long len = fs::Read(node, 0, sizeof(elf64_header_t), &header);
+    long len = FileSystem::Read(node, 0, sizeof(elf64_header_t), &header);
 
     if (len < sizeof(elf64_header_t) || !VerifyELF(&header))
     { // Verify ELF header
