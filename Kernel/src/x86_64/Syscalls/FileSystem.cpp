@@ -1,6 +1,6 @@
 #include <Scheduler.h>
 #include <Syscalls.h>
-#include <Fs/Pipe.h>
+#include <FileSystem/Pipe.h>
 #include <Net/Socket.h>
 #include <StackTrace.h>
 #include <UserPointer.h>
@@ -29,7 +29,7 @@ long SysRead(RegisterContext* r)
         return -EFAULT;
     }
 
-    ssize_t ret = fs::Read(handle, count, buffer);
+    ssize_t ret = FileSystem::Read(handle, count, buffer);
     return ret;
 }
 
@@ -53,7 +53,7 @@ long SysWrite(RegisterContext* r)
         return -EFAULT;
     }
 
-    ssize_t ret = fs::Write(handle, SC_ARG2(r), buffer);
+    ssize_t ret = FileSystem::Write(handle, SC_ARG2(r), buffer);
     return ret;
 }
 
@@ -69,7 +69,7 @@ long SysOpen(RegisterContext* r)
 {
     char* filepath = (char*)kmalloc(strlen((char*)SC_ARG0(r)) + 1);
     strcpy(filepath, (char*)SC_ARG0(r));
-    FsNode* root = fs::GetRoot();
+    FileSystemNode* root = FileSystem::GetRoot();
 
     uint64_t flags = SC_ARG1(r);
 
@@ -79,19 +79,19 @@ long SysOpen(RegisterContext* r)
 
     if (strcmp(filepath, "/") == 0) 
     {
-        return proc->AllocateHandle(fs::Open(root, 0).Value());
+        return proc->AllocateHandle(FileSystem::Open(root, 0).Value());
     }
 
 open:
     Log::Debug(debugLevelSyscalls, DebugLevelVerbose, "Working dir: %s", proc->workingDirPath);
-    FsNode* node = fs::ResolvePath(filepath, proc->workingDir->node, !(flags & O_NOFOLLOW));
+    FileSystemNode* node = FileSystem::ResolvePath(filepath, proc->workingDir->node, !(flags & O_NOFOLLOW));
 
     if (!node) 
     {
         if (flags & O_CREAT) 
         {
-            FsNode* parent = fs::ResolveParent(filepath, proc->workingDir->node);
-            String basename = fs::BaseName(filepath);
+            FilesystemNode* parent = FileSystem::ResolveParent(filepath, proc->workingDir->node);
+            String basename = FileSystem::BaseName(filepath);
 
             if (!parent) 
             {
@@ -125,7 +125,7 @@ open:
     }
 
     if (flags & O_TRUNC && ((flags & O_ACCESS) == O_RDWR || (flags & O_ACCESS) == O_WRONLY)) { node->Truncate(0); }
-    FancyRefPtr<UNIXOpenFile> handle = SC_TRY_OR_ERROR(fs::Open(node, SC_ARG1(r)));
+    FancyRefPtr<UNIXOpenFile> handle = SC_TRY_OR_ERROR(FileSystem::Open(node, SC_ARG1(r)));
 
     if (flags & O_APPEND) { handle->pos = handle->node->size; }
 
@@ -151,15 +151,15 @@ long SysLink(RegisterContext* r)
         return -EFAULT;
     }
 
-    FsNode* file = fs::ResolvePath(oldpath);
+    FileSystemNode* file = FileSystem::ResolvePath(oldpath);
     if (!file) 
     {
         Log::Warning("SysLink: Could not resolve path: %s", oldpath);
         return -ENOENT;
     }
 
-    FsNode* parentDirectory = fs::ResolveParent(newpath, proc->workingDir->node);
-    String linkName = fs::BaseName(newpath);
+    FileSystemNode* parentDirectory = FileSystem::ResolveParent(newpath, proc->workingDir->node);
+    String linkName = FileSystem::BaseName(newpath);
 
     Log::Info("SysLink: Attempting to create link %s at path %s", linkName.c_str(), newpath);
 
@@ -205,7 +205,7 @@ long SysUnlink(RegisterContext* r)
         return -EFAULT;
     }
 
-    FsNode* workingDir;
+    FileSystemNode* workingDir;
     if (fd == AT_FDCWD) 
     {
         workingDir = proc->workingDir->node;
@@ -213,7 +213,7 @@ long SysUnlink(RegisterContext* r)
         workingDir = SC_TRY_OR_ERROR(proc->GetHandleAs<UNIXOpenFile>(fd))->node;
     }
 
-    String linkName = fs::BaseName(path);
+    String linkName = FileSystem::BaseName(path);
 
     if (!workingDir) 
     {
@@ -237,8 +237,8 @@ long SysChdir(RegisterContext* r)
     Process* proc = Process::Current();
     if (SC_ARG0(r)) 
     {
-        String path = fs::CanonicalizePath((char*)SC_ARG0(r), proc->workingDirPath);
-        FsNode* n = fs::ResolvePath(path);
+        String path = FileSystem::CanonicalizePath((char*)SC_ARG0(r), proc->workingDirPath);
+        FileSystemNode* n = FileSystem::ResolvePath(path);
         if (!n) 
         {
             Log::Warning("chdir: Could not find %s", path.c_str());
@@ -269,7 +269,7 @@ long SysChmod(RegisterContext* r)
     char tempPath[pathLen + 1];
     strcpy(tempPath, path);
 
-    FsNode* file = fs::ResolvePath(tempPath, proc->workingDir->node);
+    FileSystemNode* file = FileSystem::ResolvePath(tempPath, proc->workingDir->node);
     if (!file) { return -ENOENT; }
 
     Log::Warning("SysChmod: chmod is a stub!");
@@ -292,7 +292,7 @@ long SysFStat(RegisterContext* r)
         return -EBADF;
     }
 
-    FsNode* const& node = handle->node;
+    FileSystemNode* const& node = handle->node;
 
     stat->st_dev = 0;
     stat->st_ino = node->inode;
@@ -340,7 +340,7 @@ long SysStat(RegisterContext* r)
     }
 
     bool followSymlinks = !(flags & AT_SYMLINK_NOFOLLOW);
-    FsNode* node = fs::ResolvePath(filepath, proc->workingDir->node, followSymlinks);
+    FileSystemNode* node = FileSystem::ResolvePath(filepath, proc->workingDir->node, followSymlinks);
 
     if (!node) 
     {
@@ -419,8 +419,8 @@ long SysMkdir(RegisterContext* r)
         return -EFAULT;
     }
 
-    FsNode* parentDirectory = fs::ResolveParent(path, proc->workingDir->node);
-    String dirPath = fs::BaseName(path);
+    FileSystemNode* parentDirectory = FileSystem::ResolveParent(path, proc->workingDir->node);
+    String dirPath = FileSystem::BaseName(path);
 
     Log::Info("sys_mkdir: Attempting to create %s at path %s", dirPath.c_str(), path);
 
@@ -449,7 +449,7 @@ long SysRmdir(RegisterContext* r)
     if (!Memory::CheckUsermodePointer(SC_ARG0(r), 1, proc->addressSpace)) { return -EFAULT; }
 
     char* path = reinterpret_cast<char*>(SC_ARG0(r));
-    FsNode* node = fs::ResolvePath(path, proc->workingDir->node);
+    FileSystemNode* node = FileSystem::ResolvePath(path, proc->workingDir->node);
     if (!node) { return -ENOENT; }
 
     if ((node->flags & FS_NODE_TYPE) != FS_NODE_DIRECTORY) { return -ENOTDIR; }
@@ -457,8 +457,8 @@ long SysRmdir(RegisterContext* r)
     DirectoryEntry ent;
     if (node->ReadDir(&ent, 0)) { return -ENOTEMPTY; }
 
-    FsNode* parent = fs::ResolveParent(path);
-    strcpy(ent.name, fs::BaseName(path).c_str());
+    FileSystemNode* parent = FileSystem::ResolveParent(path);
+    strcpy(ent.name, FileSystem::BaseName(path).c_str());
     ent.inode = node->inode;
 
     fs::Unlink(parent, &ent, true);
@@ -484,12 +484,12 @@ long SysRename(RegisterContext* r)
         return -EFAULT;
     }
 
-    FsNode* olddir = fs::ResolveParent(oldpath, proc->workingDir->node);
-    FsNode* newdir = fs::ResolveParent(newpath, proc->workingDir->node);
+    FileSystemNode* olddir = FileSystem::ResolveParent(oldpath, proc->workingDir->node);
+    FileSystemNode* newdir = FileSystem::ResolveParent(newpath, proc->workingDir->node);
 
     if (!(olddir && newdir)) { return -ENOENT; }
 
-    return fs::Rename(olddir, fs::BaseName(oldpath).c_str(), newdir, fs::BaseName(newpath).c_str());
+    return FileSystem::Rename(olddir, FileSystem::BaseName(oldpath).c_str(), newdir, FileSystem::BaseName(newpath).c_str());
 }
 
 /*
@@ -523,7 +523,7 @@ long SysReadDirNext(RegisterContext* r)
     if ((handle->node->flags & FS_NODE_TYPE) != FS_NODE_DIRECTORY) { return -ENOTDIR; }
 
     DirectoryEntry tempent;
-    int ret = fs::ReadDir(handle, &tempent, handle->pos++);
+    int ret = FileSystem::ReadDir(handle, &tempent, handle->pos++);
 
     strcpy(direntPointer->name, tempent.name);
     direntPointer->type = tempent.flags;
@@ -553,7 +553,7 @@ long SysReadDir(RegisterContext* r)
     if ((handle->node->flags & FS_NODE_TYPE) != FS_NODE_DIRECTORY) { return -ENOTDIR; }
 
     DirectoryEntry tempent;
-    int ret = fs::ReadDir(handle, &tempent, count);
+    int ret = FileSystem::ReadDir(handle, &tempent, count);
 
     strcpy(direntPointer->name, tempent.name);
     direntPointer->type = tempent.flags;
@@ -594,7 +594,7 @@ long SysPRead(RegisterContext* r)
     uint8_t* buffer = (uint8_t*)SC_ARG1(r);
     uint64_t count = SC_ARG2(r);
     uint64_t off = SC_ARG4(r);
-    return fs::Read(handle->node, off, count, buffer);
+    return FileSystem::Read(handle->node, off, count, buffer);
 }
 
 long SysPWrite(RegisterContext* r) 
@@ -613,7 +613,7 @@ long SysPWrite(RegisterContext* r)
     uint8_t* buffer = (uint8_t*)SC_ARG1(r);
     uint64_t count = SC_ARG2(r);
     uint64_t off = SC_ARG4(r);
-    return fs::Write(handle->node, off, count, buffer);
+    return FileSystem::Write(handle->node, off, count, buffer);
 }
 
 long SysIoctl(RegisterContext* r) 
@@ -663,7 +663,7 @@ long SysIoctl(RegisterContext* r)
         return -EBADF;
     }
 
-    int ret = fs::Ioctl(handle, request, arg);
+    int ret = FileSystem::Ioctl(handle, request, arg);
 
     if (result && ret >= 0) 
     {
@@ -872,7 +872,7 @@ long SysReadLink(RegisterContext* r)
     char* buffer = reinterpret_cast<char*>(SC_ARG1(r));
     size_t bufferSize = SC_ARG2(r);
 
-    FsNode* link = fs::ResolvePath(path);
+    FileSystemNode* link = FileSystem::ResolvePath(path);
     if (!link) 
     {
         return -ENOENT; // path does not exist
@@ -1122,8 +1122,8 @@ long SysPipe(RegisterContext* r)
 
     UNIXPipe::CreatePipe(read, write);
 
-    UNIXOpenFile* readHandle = SC_TRY_OR_ERROR(fs::Open(read));
-    UNIXOpenFile* writeHandle = SC_TRY_OR_ERROR(fs::Open(write));
+    UNIXOpenFile* readHandle = SC_TRY_OR_ERROR(FileSystem::Open(read));
+    UNIXOpenFile* writeHandle = SC_TRY_OR_ERROR(FileSystem::Open(write));
 
     readHandle->mode = flags;
     writeHandle->mode = flags;
