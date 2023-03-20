@@ -1,3 +1,5 @@
+Thank you for your support users: **Fakab**, **vi_paranoiac**, **KaliBebra**, **ka2per**, **$lllcluw**
+
 # LoriBirdOS Kernel #
 **Kernel modules** are located in [modules](https://github.com/Joomipoll/LoriBirdOS/tree/main/Kernel/Modules)
 
