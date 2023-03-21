@@ -5,46 +5,49 @@
 #include <Log.h>
 #include <Memory/KMalloc.h>
 
-CharacterBuffer::CharacterBuffer() {
+CharacterBuffer::CharacterBuffer()
+{
     buffer = new char[bufferSize];
     bufferPos = 0;
     lock = 0;
     lines = 0;
 }
 
-CharacterBuffer::~CharacterBuffer() {
-    if(buffer){
+CharacterBuffer::~CharacterBuffer()
+{
+    if(buffer)
         delete buffer;
-    }
 }
 
-ssize_t CharacterBuffer::Write(char* _buffer, size_t size) {
-    if (bufferPos + size > maxBufferSize) {
+ssize_t CharacterBuffer::Write(char* _buffer, size_t size)
+{
+    if (bufferPos + size > maxBufferSize)
         size = maxBufferSize - bufferPos;
-    }
 
-    if (size == 0) {
+    if (size == 0)
         return 0;
-    }
 
     ScopedSpinLock lock{this->lock};
 
-    if ((bufferPos + size) > bufferSize) {
+    if ((bufferPos + size) > bufferSize)
+    {
         char* oldBuf = buffer;
         buffer = (char*)kmalloc(bufferPos + size + 128);
         memcpy(buffer, oldBuf, bufferSize);
         bufferSize = bufferPos + size + 128;
 
-        if(oldBuf) {
+        if(oldBuf)
             kfree(oldBuf);
-        }
     }
 
     ssize_t written = 0;
 
-    for (unsigned i = 0; i < size; i++) {
-        if (_buffer[i] == '\b' /*Backspace*/ && !ignoreBackspace) {
-            if (bufferPos > 0) {
+    for (unsigned i = 0; i < size; i++)
+    {
+        if (_buffer[i] == '\b' /*Backspace*/ && !ignoreBackspace)
+        {
+            if (bufferPos > 0)
+            {
                 bufferPos--;
                 written++;
             }
@@ -61,16 +64,18 @@ ssize_t CharacterBuffer::Write(char* _buffer, size_t size) {
     return written;
 }
 
-ssize_t CharacterBuffer::Read(char* _buffer, size_t count) {
+ssize_t CharacterBuffer::Read(char* _buffer, size_t count)
+{
     ScopedSpinLock lock{this->lock};
-    if (count <= 0) {
+    if (count <= 0)
         return 0;
-    }
 
     int i = 0;
     int readPos = 0;
-    for (; readPos < bufferPos && i < count; readPos++) {
-        if (buffer[readPos] == '\0') {
+    for (; readPos < bufferPos && i < count; readPos++)
+    {
+        if (buffer[readPos] == '\0')
+        {
             lines--;
             continue;
         }
@@ -82,7 +87,8 @@ ssize_t CharacterBuffer::Read(char* _buffer, size_t count) {
             lines--;
     }
 
-    for (unsigned j = 0; j < bufferSize - readPos; j++) {
+    for (unsigned j = 0; j < bufferSize - readPos; j++)
+    {
         buffer[j] = buffer[readPos + j];
     }
 
@@ -91,7 +97,8 @@ ssize_t CharacterBuffer::Read(char* _buffer, size_t count) {
     return i;
 }
 
-void CharacterBuffer::Flush() {
+void CharacterBuffer::Flush()
+{
     ScopedSpinLock lock{this->lock};
 
     bufferPos = 0;
