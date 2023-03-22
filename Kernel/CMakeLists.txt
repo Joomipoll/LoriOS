@@ -18,8 +18,8 @@ if(NOT CMAKE_SYSTEM_NAME MATCHES Lori)
 endif()
 
 include_directories(include)
-include_directories($ENV{LORI_BUILDROOT}/Thirdparty/frigg/include)
-include_directories($ENV{LORI_BUILDROOT}/Thirdparty/cxxshim/stage2/include)
+include_directories($ENV{LORI_BUILDROOT}/imp/frigg/include)
+include_directories($ENV{LORI_BUILDROOT}/imp/cxxshim/stage2/include)
 
 if("${LORI_ARCH}" STREQUAL "x86_64")
     include_directories(include/Arch/x86_64)
