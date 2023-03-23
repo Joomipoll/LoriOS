@@ -6,7 +6,7 @@
 #include <RefPtr.h>
 #include <Vector.h>
 
-#include <MM/VMObject.h>
+#include <Memory/VMObject.h>
 
 class AddressSpace final {
 public:
