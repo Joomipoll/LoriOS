@@ -6,35 +6,36 @@
 #include <String.h>
 #include <Vector.h>
 #include <stdint.h>
-#define EXT2_SUPERBLOCK_LOCATION 1024
-#define EXT2_SUPER_MAGIC 0xEF53
-#define EXT2_VALID_FS 1
-#define EXT2_ERROR_FS 2
-#define EXT2_GOOD_OLD_REV 0
-#define EXT2_DYNAMIC_REV 1
-#define EXT2_GOOD_OLD_INODE_SIZE 128
-#define EXT2_S_IFMT 0xF000
-#define EXT2_S_IFBLK 0x6000
-#define EXT2_S_IFCHR 0x2000
-#define EXT2_S_IFIFO 0x1000
-#define EXT2_S_IFREG 0x8000
-#define EXT2_S_IFDIR 0x4000
-#define EXT2_S_IFLNK 0xA000
-#define EXT2_S_IFSOCK 0xC000
-#define EXT2_FT_UNKNOWN 0
-#define EXT2_FT_REG_FILE 1
-#define EXT2_FT_DIR 2
-#define EXT2_FT_CHRDEV 3
-#define EXT2_FT_BLKDEV 4
-#define EXT2_FT_FIFO 5
-#define EXT2_FT_SOCK 6
-#define EXT2_FT_SYMLINK 7
-#define EXT2_ROOT_INODE_INDEX 2
-#define EXT2_DIRECT_BLOCK_COUNT 12
-#define EXT2_SINGLY_INDIRECT_INDEX 12
-#define EXT2_DOUBLY_INDIRECT_INDEX 13
-#define EXT2_TRIPLY_INDIRECT_INDEX 14
-#define EXT2_BLOCKCACHE_LIMIT 96 * 1024 * 1024
+
+#define EXT2_SUPERBLOCK_LOCATION    1024
+#define EXT2_SUPER_MAGIC            0xEF53
+#define EXT2_VALID_FS               1
+#define EXT2_ERROR_FS               2
+#define EXT2_GOOD_OLD_REV           0
+#define EXT2_DYNAMIC_REV            1
+#define EXT2_GOOD_OLD_INODE_SIZE    128
+#define EXT2_S_IFMT                 0xF000
+#define EXT2_S_IFBLK                0x6000
+#define EXT2_S_IFCHR                0x2000
+#define EXT2_S_IFIFO                0x1000
+#define EXT2_S_IFREG                0x8000
+#define EXT2_S_IFDIR                0x4000
+#define EXT2_S_IFLNK                0xA000
+#define EXT2_S_IFSOCK               0xC000
+#define EXT2_FT_UNKNOWN             0
+#define EXT2_FT_REG_FILE            1
+#define EXT2_FT_DIR                 2
+#define EXT2_FT_CHRDEV              3
+#define EXT2_FT_BLKDEV              4
+#define EXT2_FT_FIFO                5
+#define EXT2_FT_SOCK                6
+#define EXT2_FT_SYMLINK             7
+#define EXT2_ROOT_INODE_INDEX       2
+#define EXT2_DIRECT_BLOCK_COUNT     12
+#define EXT2_SINGLY_INDIRECT_INDEX  12
+#define EXT2_DOUBLY_INDIRECT_INDEX  13
+#define EXT2_TRIPLY_INDIRECT_INDEX  14
+#define EXT2_BLOCKCACHE_LIMIT       96 * 1024 * 1024
 
 namespace fs {
 class Ext2 : public fs::FsDriver {
