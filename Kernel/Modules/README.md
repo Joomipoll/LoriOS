@@ -22,14 +22,16 @@ Runs in-kernel tests
 ```c
 #include <Module.h>
 
-#include <Logging.h>
+#include <Log.h>
 #include <Scheduler.h>
 
-void Test1(){
+void Test1()
+{
 	Scheduler::Yield();
 }
 
-int ModuleInit(){
+int ModuleInit()
+{
 	Log::Info("Hello, Module World!");
 
 	Test1();
@@ -37,7 +39,8 @@ int ModuleInit(){
 	return 0;
 }
 
-int ModuleExit(){
+int ModuleExit()
+{
 	Log::Info("Goodbye, Module World!");
 
 	return 0;
