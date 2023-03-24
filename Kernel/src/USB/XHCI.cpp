@@ -23,13 +23,6 @@ int XHCIController::Initialize() {
     }
 
     return 0;
-
-    /*PCI::EnumerateGenericPCIDevices(xhciClassCode, xhciSubclass, [](const PCIInfo& dev) -> void {
-        if (dev.progIf == xhciProgIF) {
-            xhciControllers.add_back(new XHCIController(dev));
-        }
-    });
-    return 0;*/
 }
 
 XHCIController::XHCIController(const PCIInfo& dev) : PCIDevice(dev) {
@@ -124,40 +117,6 @@ XHCIController::XHCIController(const PCIInfo& dev) : PCIDevice(dev) {
     InitializeProtocols();
 
     interrupter = &runtimeRegs->interrupters[0];
-    // interrupter->intModerationInterval = 4000; // (~1ms)
-
-    /*eventRingSegmentTablePhys = Memory::AllocatePhysicalMemoryBlock();
-    eventRingSegmentTable = reinterpret_cast<xhci_event_ring_segment_table_entry_t*>(Memory::KernelAllocate4KPages(1));
-    Memory::KernelMapVirtualMemory4K(eventRingSegmentTablePhys, reinterpret_cast<uintptr_t>(eventRingSegmentTable), 1,
-                                     PAGE_PRESENT | PAGE_WRITABLE | PAGE_CACHE_DISABLED);
-    memset(eventRingSegmentTable, 0, PAGE_SIZE_4K);
-
-    eventRingSegmentTableSize =
-        1; // For now we support one segment // PAGE_SIZE_4K / XHCI_EVENT_RING_SEGMENT_TABLE_ENTRY_SIZE;
-    eventRingSegments = new XHCIEventRingSegment[eventRingSegmentTableSize];
-    for (unsigned i = 0; i < eventRingSegmentTableSize; i++) {
-        xhci_event_ring_segment_table_entry_t* entry = &eventRingSegmentTable[i];
-        XHCIEventRingSegment* segment = &eventRingSegments[i];
-
-        segment->entry = entry;
-        segment->segmentPhys = Memory::AllocatePhysicalMemoryBlock();
-        segment->segment = reinterpret_cast<xhci_event_trb_t*>(Memory::KernelAllocate4KPages(1));
-        Memory::KernelMapVirtualMemory4K(segment->segmentPhys, reinterpret_cast<uintptr_t>(segment->segment), 1,
-                                         PAGE_PRESENT | PAGE_WRITABLE | PAGE_CACHE_DISABLED);
-
-        entry->ringSegmentBaseAddress = segment->segmentPhys;
-        memset(segment->segment, 0, PAGE_SIZE_4K);
-
-        entry->ringSegmentSize = PAGE_SIZE_4K / XHCI_TRB_SIZE; // Comes down to 256 TRBs per segment
-        segment->size = PAGE_SIZE_4K / XHCI_TRB_SIZE;
-    }
-    eventRingDequeue = eventRingSegments[0].segment;
-
-    interrupter->eventRingSegmentTableSize = eventRingSegmentTableSize;
-    interrupter->eventRingSegmentTableBaseAddress = eventRingSegmentTablePhys;
-    interrupter->eventRingDequeuePointer = reinterpret_cast<uintptr_t>(eventRingSegments[0].segment);
-    opRegs->SetMaxSlotsEnabled(maxSlots);*/
-
     opRegs->SetMaxSlotsEnabled(maxSlots);
 
     Log::Info("[XHCI] Interface version: %x, Page size: %d, Operational registers offset: %x, Runtime registers "
