@@ -1,4 +1,4 @@
-#include <Lori/Input.h>
+#include <Lori/Core/Input.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
