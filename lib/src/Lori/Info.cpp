@@ -1,4 +1,4 @@
-#include <Lori/Sys/Info.h>
+#include <Lori/Info.h>
 #include <Lori/syscall.h>
 
 namespace Lori
