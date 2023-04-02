@@ -1,5 +1,5 @@
-#include <Lori/System/Waitable.h>
-#include <Lori/System/KernelObject.h>
+#include <Lori/Sys/Waitable.h>
+#include <Lori/Sys/KernelObject.h>
 
 namespace Lori
 {
