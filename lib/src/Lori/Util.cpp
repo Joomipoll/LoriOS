@@ -1,4 +1,4 @@
-#include <Lori/System/Util.h>
+#include <Lori/Sys/Util.h>
 #include <lori/syscall.h>
 #include <sys/types.h>
 
