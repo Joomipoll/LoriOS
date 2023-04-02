@@ -1,6 +1,7 @@
 # LoriOS
 
-LoriOS is a UNIX-like 64-bit operating system written in C++.<br>
+LoriOS is a UNIX-like 64-bit operating system written in C++.
+
 **Currently under development**
 
 <!-- [![build status]()]() -->
