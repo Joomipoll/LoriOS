@@ -60,7 +60,8 @@ All materials are distributed under the GNU GPL 3.0 license by volant127 Corpora
 The developers chose to remain anonymous. <br>
 The project was created with the support of volant127.
 
-- Joomipoll — Lead developer, Technical writer
-- KaliBebra — .h developer
-- ✞Дiва_Марiя✞ — Kernel scheduler
-- chicadaParanoiac — [Modules](./Kernel/Modules/) directory creator
+- Joomipoll — Lead developer, Technical writer, 1-st C++ developer (Serbia)
+- KaliBebra — .h developer (Russia)
+- ✞Дiва_Марiя✞ — Kernel scheduler (Ukraine)
+- chicadaParanoiac — [Modules](./Kernel/Modules/) directory creator (USA, Ohio)
+- Patatočka — 2-nd C++ developer (Polish)
