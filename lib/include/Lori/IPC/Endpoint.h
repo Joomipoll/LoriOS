@@ -1,0 +1,218 @@
+#pragma once
+
+#include <assert.h>
+#include <stdint.h>
+#include <fcntl.h>
+
+#include <Lori/Sys/Handle.h>
+#include <Lori/Sys/IPC.h>
+#include <Lori/Sys/KernelObject.h>
+#include <Lori/Sys/Waitable.h>
+#include <Lori/Types.h>
+#include <Lori/Core/Logger.h>
+#include <Lori/IPC/Message.h>
+
+namespace Lori
+{
+    class EndpointException : public std::exception
+    {
+    public:
+        enum
+        {
+            EndpointUnknownError,
+            EndpointInterfacePathResolutionError,
+            EndpointInvalidHandle,
+            EndpointNotConnected,
+        };
+
+    protected:
+        int error = 0;
+        static const char* const errorStrings[];
+
+    public:
+        EndpointException(int error) { this->error = error; }
+
+        const char* what() const noexcept { return errorStrings[error]; }
+    };
+
+    class Endpoint : public Waitable
+    {
+    public:
+        Endpoint() = default;
+        Endpoint(const Lori::Endpoint& other) = delete;
+
+        Endpoint(Lori::Endpoint&& other) : m_handle(std::move(other.m_handle)), m_msgSize(other.m_msgSize)
+        {
+            assert(m_handle.get() > 0);
+
+            other.m_handle = Handle();
+        }
+
+        Endpoint(Handle h, uint16_t msgSize)
+        {
+            assert(h.get() > 0);
+
+            m_handle = h;
+            this->m_msgSize = msgSize;
+        }
+
+        Endpoint(Handle h)
+        {
+            assert(h.get() > 0);
+
+            m_handle = h;
+
+            LoriEndpointInfo endpInfo;
+            if (long ret = EndpointInfo(m_handle.get(), endpInfo); ret)
+            {
+                if (ret == -EINVAL)
+                {
+                    printf("[Lib] Invalid endpoint handle!\n");
+                    throw new EndpointException(EndpointException::EndpointInvalidHandle);
+                } else {
+                    printf("[Lib] Endpoint error %ld\n!", ret);
+                    throw new EndpointException(EndpointException::EndpointUnknownError);
+                }
+            }
+            this->m_msgSize = endpInfo.msgSize;
+        }
+
+        Endpoint(const std::string& path) : Endpoint(path.c_str()) {}
+
+        Endpoint(const char* path)
+        {
+            handle_t handle = InterfaceConnect(path);
+
+            if (handle <= 0)
+            {
+                Logger::Error("[Lib] {}, error connecting to interface {}\n", handle, path);
+                throw new EndpointException(EndpointException::EndpointInterfacePathResolutionError);
+            }
+
+            LoriEndpointInfo endpInfo;
+            if (long ret = EndpointInfo(handle, endpInfo); ret)
+            {
+                if (ret == -EINVAL)
+                    throw new EndpointException(EndpointException::EndpointInvalidHandle);
+                else
+                    throw new EndpointException(EndpointException::EndpointUnknownError);
+            }
+
+            if (fcntl(handle, F_SETFD, FD_CLOEXEC)) 
+            {
+                Logger::Error("Failed to set endpoint O_CLOEXEC: {}", strerror(errno));
+                throw new EndpointException(EndpointException::EndpointUnknownError);
+            }
+
+            m_handle = Handle(handle);
+            m_msgSize = endpInfo.msgSize;
+        }
+
+        Lori::Endpoint& operator=(Lori::Endpoint&& other)
+        {
+            m_handle = std::move(other.m_handle);
+            m_msgSize = other.m_msgSize;
+
+            assert(m_handle.get());
+
+            other.m_handle = Handle();
+
+            return *this;
+        }
+
+        ~Endpoint() = default;
+
+        /*
+         * \brief Close Endpoint
+         *
+         * Destroy the handle to the endpoint,
+         * the actual endpoint will be destroyed when any peers destroy their handles
+         */
+        inline void Close()
+        {
+            DestroyKObject(m_handle.get());
+
+            m_handle = Handle();
+        }
+
+        inline operator handle_t() { return m_handle.get(); }
+
+        /*
+         * \brief Get the Kernel Handle to the Endpoint
+         *
+         * Returns a LoriOS handle ID pointing to the endpoint.
+         *
+         * \return Handle ID of endpoint
+         */
+        inline const Handle& GetHandle() { return m_handle; }
+
+        /*
+         * \brief Get the message size
+         *
+         * \return Maximum message size
+         */
+        inline uint16_t GetMessageSize() const { return m_msgSize; }
+
+        inline long Queue(uint64_t id, const uint8_t* data, uint16_t size)
+        {
+            return EndpointQueue(m_handle.get(), id, size, reinterpret_cast<uintptr_t>(data));
+        }
+
+        inline long Queue(uint64_t id, uint64_t data, uint16_t size)
+        {   
+            return EndpointQueue(m_handle.get(), id, size, data);
+        }
+
+        inline long Queue(const Message& m)
+        {
+            return EndpointQueue(m_handle.get(), m.id(), m.length(), reinterpret_cast<uintptr_t>(m.data()));
+        }
+
+        inline long Poll(Message& m)
+        {
+            uint64_t id;
+            uint16_t size;
+            uint8_t* data = new uint8_t[m_msgSize];
+            long ret = EndpointDequeue(m_handle.get(), &id, &size, data);
+
+            if (ret > 0)
+                m.Set(data, size, id);
+            else
+                delete[] data;
+
+            return ret;
+        }
+
+        inline long Call(const Message& call, Message& rmsg, uint64_t id)
+        {
+            uint16_t size = call.length();
+            uint8_t* data = new uint8_t[m_msgSize];
+
+            long ret = EndpointCall(m_handle.get(), call.id(), reinterpret_cast<uintptr_t>(call.data()), id, reinterpret_cast<uintptr_t>(data), &size);
+
+            if (!ret)
+                rmsg.Set(data, size, id);
+            else
+                delete[] data;
+
+            return ret;
+        }
+
+        inline long Call(Message& call, uint64_t id)
+        {
+            uint16_t size = call.length();
+            uint8_t* data = const_cast<uint8_t*>(call.data());
+
+            long ret = EndpointCall(m_handle.get(), call.id(), reinterpret_cast<uintptr_t>(call.data()), id, reinterpret_cast<uintptr_t>(call.data()), &size);
+
+            if (!ret)
+                call.Set(data, size, id);
+
+            return ret;
+        }
+
+    protected:
+        Handle m_handle;
+        uint16_t m_msgSize = 512;
+    };
+};
