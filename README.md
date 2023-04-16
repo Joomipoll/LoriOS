@@ -60,7 +60,7 @@ All materials are distributed under the GNU GPL 3.0 license by volant127 Corpora
 The developers chose to remain anonymous. <br>
 The project was created with the support of volant127.
 
-- Joomipoll — Lead developer, Technical writer, 1-st C++ developer (Serbia, Braničevski)
+- Joomipoll — Lead developer, Technical writer, C++ developer (Serbia, Braničevski)
 - KaliBebra — .h developer (Russia)
 - ✞Дiва_Марiя✞ — Task Manager (Ukraine)
 - chicadaParanoiac — [Modules](./Kernel/Modules/) directory creator (USA, Ohio)
