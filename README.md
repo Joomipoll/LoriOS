@@ -4,6 +4,8 @@ LoriOS is a UNIX-like 64-bit operating system written in C++.
 
 **Currently under development**
 
+<img src="https://img.shields.io/github/commit-activity/y/Joomipoll/LoriOS?color=red&label=Commits%20activity&logo=github&logoColor=white" alt="Commits"/>
+
 <!-- [![build status]()]() -->
 
 ## Contents
