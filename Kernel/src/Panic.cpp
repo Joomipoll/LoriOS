@@ -17,7 +17,7 @@ void KernelPanic(const char** reasons, int reasonCount) {
         pos += 10;
     }
 
-    Video::DrawString("Fatal Exception", v.width / 2 - strlen("Fatal Exception") * 16 / 2, v.height / 2, 255, 255, 255, 3, 2);
+    Video::DrawString("Kernel Panic", v.width / 2 - strlen("Kernel Panic") * 16 / 2, v.height / 2, 255, 255, 255, 3, 2);
 
     Video::DrawString("Lori has encountered a fatal error.", 0, v.height - 200, 255, 255, 255);
     Video::DrawString("The system has been halted.", 0, v.height - 200 + 8, 255, 255, 255);
