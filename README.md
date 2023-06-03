@@ -64,6 +64,6 @@ The project was created with the support of volant127.
 
 - Joomipoll — Lead developer, Technical writer, C++ developer (Serbia, Braničevski)
 - KaliBebra — .h developer (Russia)
-- ✞Дiва_Марiя✞ — Task Manager (Ukraine)
+- ✞Дiва_Марiя✞ — Task Manager (Ukraine) **// went missing**
 - chicadaParanoiac — [Modules](./Kernel/Modules/) directory creator (USA, Ohio)
 - Mγ_ςατ_mεσω_mε — Computer hardware consultant (USA, Wyoming)
