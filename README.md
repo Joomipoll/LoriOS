@@ -34,7 +34,7 @@ No, our project is based on pure enthusiasm
 
 ## <a name="4">TODO</a>
 
-- [ ] Write kernel
+- [x] Write kernel
     - [x] Audio
     - [x] FileSystem
     - [x] Memory
@@ -42,8 +42,7 @@ No, our project is based on pure enthusiasm
     - [x] TTY
     - [x] Obj
     - [x] Storage
-    - [ ] USB
-        - [ ] XHCIDrive 
+    - [x] USB
     - [x] Video
     - [x] Arch
 - [ ] User interface (lib/UI/...)
