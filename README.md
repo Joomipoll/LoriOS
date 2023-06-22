@@ -35,16 +35,6 @@ No, our project is based on pure enthusiasm
 ## <a name="4">TODO</a>
 
 - [x] Write kernel
-    - [x] Audio
-    - [x] FileSystem
-    - [x] Memory
-    - [x] Net
-    - [x] TTY
-    - [x] Obj
-    - [x] Storage
-    - [x] USB
-    - [x] Video
-    - [x] Arch
 - [ ] User interface (lib/UI/...)
 - [ ] Base directory (Base/...)
 - [ ] Ports/packages.yml
