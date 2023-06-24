@@ -4,7 +4,7 @@ LoriOS is a UNIX-like 64-bit operating system written in C++.
 
 **Currently under development**
 
-<img src="https://img.shields.io/github/commit-activity/y/Joomipoll/LoriOS?color=red&label=Commits%20activity&logo=github&logoColor=white" alt="Commits"/>
+<img src="https://img.shields.io/github/commit-activity/y/Joomipoll/LoriOS?color=red&label=Commits%20activity&logo=github&logoColor=white" alt="Commits"/> <img src="https://img.shields.io/badge/license-GPL_3.0-blue.svg?style=flat-square" alt="License" />
 
 <!-- [![build status]()]() -->
 
@@ -51,8 +51,6 @@ All materials are distributed under the GNU GPL 3.0 license by volant127 Corpora
 The developers chose to remain anonymous. <br>
 The project was created with the support of volant127.
 
-- Joomipoll — Lead developer, Technical writer, C++ developer (Serbia, Braničevski)
-- KaliBebra — .h developer (Russia)
-- ✞Дiва_Марiя✞ — Task Manager (Ukraine) **// went missing**
-- chicadaParanoiac — [Modules](./Kernel/Modules/) directory creator (USA, Ohio)
+- Joomipoll — Lead developer, Technical writer, C++ developer (Serbia)
+- ✞Дiва_Марiя✞ — Task Manager (Ukraine)
 - Mγ_ςατ_mεσω_mε — Computer hardware consultant (USA, Wyoming)
